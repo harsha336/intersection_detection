@@ -1,6 +1,6 @@
 <launch>
-  <include file="$(find gazebo_ros)/launch/empty_world.launch">
-        <arg name="world_name" value="$(find corner_detect)/worlds/se1f1_16.world" />
+  <include file="$(find gazebo_ros)/launch/empty_world.launch" output="log">
+        <arg name="world_name" value="$(find corner_detect)/world/se1.world" />
         <arg name="paused" value="false"/>
         <arg name="use_sim_time" value="true"/>
         <arg name="gui" value="true"/>
@@ -9,12 +9,9 @@
         <remap from="pioneer3at_with_sensors::chassis" to="base_link"/>
   </include>
   <arg name="scan_topic" default="scan" />
-  <node pkg="corner_detect" type="lasescan" name="laser_scan">
-     <rosparam command="load" file="$(find corner_detect)/filters/shadow_filter_example.yaml" />
-  </node>
+  <node pkg="corner_detect" type="lasescan" name="laser_scan" output="screen" />
 
-  <node pkg="laser_filters" type="scan_to_scan_filter_chain"
-      name="laser_filter">
+  <node pkg="laser_filters" type="scan_to_scan_filter_chain" name="laser_filter">
     <rosparam command="load" file="$(find corner_detect)/filters/shadow_filter_example.yaml" />
     <remap from="scan" to="scan" />
   </node>

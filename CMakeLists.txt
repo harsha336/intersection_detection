@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(corner_detect)
+set(CMAKE_BUILD_TYPE Debug)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -191,6 +192,7 @@ include_directories(${PCL_INCLUDE_DIRS})
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
+
 #############
 ## Testing ##
 #############
@@ -203,5 +205,8 @@ include_directories(${PCL_INCLUDE_DIRS})
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+add_library(topofeat src/topoFeatures.cpp)
+target_link_libraries(topofeat ${catkin_LIBRARIES})
+
 add_executable(lasescan src/laserScanListener.cpp)
-target_link_libraries(lasescan ${catkin_LIBRARIES} ${PCL_COMMON_LIBRARIES})
+target_link_libraries(lasescan topofeat ${catkin_LIBRARIES} ${PCL_COMMON_LIBRARIES})
