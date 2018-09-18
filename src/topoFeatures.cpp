@@ -13,7 +13,11 @@ void inter_det::TopoFeature::addTopoFeat(int feat, int pos, float beg_x, float b
   {
     for(ti = 0;ti < topo_vec_.size();ti++)
     {
-      if(topo_vec_[ti].feat == LINE && (topo_vec_[ti].position == pos))
+      if(topo_vec_[ti].feat == LINE && 
+      	(std::abs(topo_vec_[ti].beg_x - beg_x) < LIN_SIGMA) &&
+	(std::abs(topo_vec_[ti].beg_y - beg_y) < LIN_SIGMA) &&
+	(std::abs(topo_vec_[ti].end_x - end_x) < LIN_SIGMA) &&
+	(std::abs(topo_vec_[ti].end_y - end_y) < LIN_SIGMA))
       {
         int prev_type = topo_vec_[ti].feat;
 	if(topo_vec_[ti].feat == LINE && feat == CURVE)
@@ -47,23 +51,38 @@ void inter_det::TopoFeature::setCurrentTf(tf::Transform t)
 	cur_tf_ = t;
 }
 
-void inter_det::TopoFeature::clearTopoFeatures()
+void inter_det::TopoFeature::clearTopoFeatures(int node_count)
 {
 	ROS_INFO("TopoFeature::clearTopoFeatures: Clearing all the topological features!");
 	topo_vec_.clear();
 	node_ref_ = node_head_;
 	int end;
-	while( true )
+	int count = 0;
+	/*while( true )
 	{
+		count++;
 		end = node_ref_->type;
+		if(node_count < 0 && std::abs(node_count) >= count)
+			break;
 		ROS_INFO_STREAM( "TopoFeature::clearTopoFeatures: Deleting node: " <<
 				node_ref_->type);
+		ROS_INFO_STREAM( "TopoFeature::clearTopoFeatures: Count" <<
+			count);
 		node_head_ = node_ref_->fr->next;
 		delete node_ref_;
 		if(end == END) 
 			break;
 		else
 			node_ref_ = node_head_;
+	}*/
+	for( unsigned int i = 0;i < topo_vec_.size();i++ )
+	{
+		ROS_INFO_STREAM( "TopoFeature::clearTopoFeatures: Deleting node: " << node_ref_->type);
+		if(node_ref_->fr != NULL)
+		{
+			node_ref_ = node_ref_->fr->next;
+		}
+		delete node_ref_;
 	}
 	return;
 }
@@ -120,14 +139,16 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 	float para_x, para_y, begx, begy;
 	bool rev;
 	int sign;
-	int t = 0.01;
+	float t = 0.01;
 	para_x = l1.end_x - l1.beg_x;
 	para_y = l1.end_y - l1.beg_y;
 	begx = l1.beg_x; begy = l1.beg_y;
 	(begx < l2.beg_x)? sign = -1 : sign = 1;
-	while( sign*begx < l2.beg_x )
+	while( sign*begx < l2.beg_x && std::abs(begx) < 10 && std::abs(begy) < 10)
 	{
-		ROS_INFO_STREAM( "TopoFeature::checkParlell: In while loop!");
+		ROS_INFO_STREAM( "TopoFeature::checkParlell: In while loop!" << begx
+				 << " parax: " << para_x << " begy: " << begy
+				 << " paray: " << para_y );
 		begx = begx + para_x*t;
 		begy = begy + para_y*t;
 		if((begx - l2.beg_x) < LIN_SIGMA && (begy - l2.beg_y) < LIN_SIGMA)
@@ -144,10 +165,15 @@ int inter_det::TopoFeature::buildRelation()
 	int cur, next;
 	struct relation *r;
 	struct node *new_node, *next_new_node;
+	int node_count = 0;
 	if(topo_vec_.empty())
 	{
 		ROS_INFO_STREAM( "TopoFeature::buildRelation: No features to detect returning" );
-		return -999;
+		return 0;
+	}
+	else
+	{
+		ROS_INFO_STREAM( "TopoFeature::buildRelation: topo_vec_ not empty!" );
 	}
 
 	float vec1[2], vec2[2];
@@ -155,12 +181,15 @@ int inter_det::TopoFeature::buildRelation()
 	int temp; std::string temp_str;
 	for (unsigned int i = 0;i < topo_vec_.size();i++)
 	{
+		node_count++;
 		cur = i;
+		ROS_INFO_STREAM( "TopoFeature::buildRelation: Before allocating space!" );
 		struct relation* fr = (struct relation*)malloc(sizeof(struct relation));
 		struct relation* br = (struct relation*)malloc(sizeof(struct relation));
 
-		if ( i == (topo_vec_.size() - 1))
+		if ( i == (topo_vec_.size() - 1) && topo_vec_.size()>1)
 		{
+			ROS_INFO_STREAM( "TopoFeature::buildRelation: Last node!" );
 			next = 0;
 			new_node = node_ref_;
 			next_new_node = node_head_;
@@ -170,6 +199,7 @@ int inter_det::TopoFeature::buildRelation()
 		}
 		else if(i == 0)
 		{
+			ROS_INFO_STREAM( "TopoFeature::buildRelation: First node!" );
 			next = i + 1;
 			new_node = (struct node*)malloc(sizeof(struct node));
 			next_new_node = (struct node*)malloc(sizeof(struct node));
@@ -184,6 +214,7 @@ int inter_det::TopoFeature::buildRelation()
 		}
 		else
 		{
+			ROS_INFO_STREAM( "TopoFeature::buildRelation: Middle elem" );
 			next = i + 1;
 			next_new_node = (struct node*)malloc(sizeof(struct node));
 			new_node = node_ref_;
@@ -314,13 +345,13 @@ int inter_det::TopoFeature::buildRelation()
 			else
 			{
 				ROS_INFO_STREAM( "TopoFeature::buildRelation: Parlell angles should not be different than the current" );
-				return -999;
+				return(-node_count);
 			}
 		}
 		else
 		{
 			ROS_INFO_STREAM( "TopoFeature::buildRelation: Found a wierd angle: " << r->angle);
-			return -999;
+			return(-node_count);
 		}
 		ROS_INFO_STREAM( "TopoFeature::buildRelation: Node [" << node_ref_->type <<
                                  "]: Info: <" << node_ref_->info.beg_x << "," << node_ref_->info.beg_y
@@ -336,7 +367,7 @@ int inter_det::TopoFeature::buildRelation()
 
 		node_ref_ = next_new_node;
 	}
-	return 1;
+	return(node_count);
 }
 
 void inter_det::TopoFeature::printRelation()
@@ -347,11 +378,14 @@ void inter_det::TopoFeature::printRelation()
 		ROS_INFO_STREAM( "TopoFeature::printRelation: Nothing to print" );
 		return;
 	}
+	if(topo_vec_.size() <= 1)
+		return;
 
 	node_ref_ = node_head_;
 	int ent;
 	std::string rel = "NONE";
-	while( node_ref_ != NULL )
+	//while( node_ref_ != NULL )
+	for( unsigned int i = 0;i < topo_vec_.size();i++)
 	{
 		ROS_INFO_STREAM( "TopoFeature::printRelation: Node [" << node_ref_->type <<
 				 "]: Info: <" << node_ref_->info.beg_x << "," << node_ref_->info.beg_y
@@ -367,15 +401,17 @@ void inter_det::TopoFeature::printRelation()
 					" space_y: " << node_ref_->fr->space_y <<
 					" side_gap: " << node_ref_->fr->side_gap <<
 					" same_gap: " << node_ref_->fr->same_gap );
-		if( node_ref_->fr->next->type == BEG )
-			node_ref_ = NULL;
-		else node_ref_ = node_ref_->fr->next;
+		//if( node_ref_->fr->next->type == BEG )
+		//	node_ref_ = NULL;
+		//else node_ref_ = node_ref_->fr->next;
+		if( node_ref_->fr != NULL ) node_ref_ = node_ref_->fr->next;
 
 	}
 
 	ROS_INFO_STREAM( "TopoFeature::printRelation: Printing backwards!");
 	node_ref_ = node_head_->br->next;
-	while( node_ref_ != NULL )
+	//while( node_ref_ != NULL )
+	for( unsigned int i = 0;i < topo_vec_.size();i++ )
         {
                 ROS_INFO_STREAM( "TopoFeature::printRelation: Node [" << node_ref_->type <<
                                  "]: Info: <" << node_ref_->info.beg_x << "," << node_ref_->info.beg_y
@@ -391,14 +427,20 @@ void inter_det::TopoFeature::printRelation()
                                         " space_y: " << node_ref_->br->space_y <<
                                         " side_gap: " << node_ref_->br->side_gap <<
                                         " same_gap: " << node_ref_->br->same_gap );
-                if( node_ref_->br->next->type == END )
-                        node_ref_ = NULL;
-                else node_ref_ = node_ref_->br->next;
+                //if( node_ref_->br->next->type == END )
+                //        node_ref_ = NULL;
+                //else node_ref_ = node_ref_->br->next;
+		if( node_ref_->br != NULL )
+			node_ref_ = node_ref_->br->next;
         }
 }
 
 int inter_det::TopoFeature::identifyIntersection()
 {
+	bool left_space, right_space, center_space, leftf, rightf;
+	leftf = rightf = left_space = right_space = center_space = false;
+	if(topo_vec_.size() <= 1)
+		return(logIntersection(right_space, left_space, center_space));
 	ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Method entered!" );
 	if( node_head_ == NULL )
 	{
@@ -429,9 +471,6 @@ int inter_det::TopoFeature::identifyIntersection()
                                         left->info.end_x << "," << left->info.end_y << ">" <<
 					left->br->rel_to );
 
-
-	bool left_space, right_space, center_space;
-	left_space = right_space = center_space = false;
 
 	while ( right != left )
 	{
@@ -468,8 +507,20 @@ int inter_det::TopoFeature::identifyIntersection()
 						ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Found left!, Not yet returning!");
 						center_space = true;
 					}
+					else
+					{
+						leftf = true;
+						ROS_INFO_STREAM( "TopoFeature::identifyIntersection: leftf set to: " << leftf);
+					}
 				}
 			}
+			leftf = true;
+			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: leftf set to: " << leftf);
+		}
+		else
+		{
+			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Should not be here" );
+			leftf = true;
 		}
 
 		if ( left->br->rel_to == BACK || left->br->rel_to == FRONT )
@@ -503,9 +554,23 @@ int inter_det::TopoFeature::identifyIntersection()
                                                 ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Found right!, Not yet returning!");
                                                 center_space = true;
                                         }
+					else
+					{
+						rightf = true;
+						ROS_INFO_STREAM( "TopoFeature::identifyIntersection: rightf set to: " << rightf);
+					}
                                 }
                         }
+			rightf = true;
+			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: rightf set to: " << rightf);
 		}
+		else
+		{
+			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Should not be here!" );
+			rightf = true;
+		}
+		if( leftf && rightf )
+			return(logIntersection(right_space, left_space, center_space));
 	}
 	return(logIntersection(right_space, left_space, center_space));
 }

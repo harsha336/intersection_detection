@@ -45,6 +45,7 @@ class LaserScanListener{
 
   // Subscriber to laser scan
   message_filters::Subscriber<sensor_msgs::LaserScan> laser_sub_;
+  //ros::Subscriber laser_sub_;
 
   //Used to register callback but not for the actual purpose.
   tf::MessageFilter<sensor_msgs::LaserScan> *laser_notifier_;
@@ -79,7 +80,7 @@ class LaserScanListener{
 
   public: LaserScanListener();
   public: ~LaserScanListener();
-  protected: void scanCallback(const sensor_msgs::LaserScan::ConstPtr&);
+  protected: void scanCallback(const sensor_msgs::LaserScan::ConstPtr);
   protected: void detectBreakPoint(const sensor_msgs::LaserScan& scan);
   protected: void detectLineSegments(pcl::PointCloud<pcl::PointXYZ>::iterator,pcl::PointCloud<pcl::PointXYZ>::iterator);
   //protected: void detectCurveAndCorner(pcl::PointCloud<pcl::PointXYZ>::iterator, pcl::PointCloud<pcl::PointXYZ>::iterator);

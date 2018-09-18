@@ -11,8 +11,8 @@
 #define LEF_TUR_ANG 3.0
 #define SIGMA 0.4
 #define ANG_SIGMA 0.1
-#define LIN_SIGMA 0.05
-#define GAP_SIGMA 0.5
+#define LIN_SIGMA 0.50
+#define GAP_SIGMA 1.5
 
 namespace inter_det
 {
@@ -79,7 +79,7 @@ namespace inter_det
     int identifyIntersection();
     void updateFlags(float angle,struct topo seg1,struct topo seg2,int comp_flag,int side_flag);
     void initFlags();
-    void clearTopoFeatures();
+    void clearTopoFeatures(int);
     int buildRelation();
     int checkLineIntersection(struct topo, struct topo);
     int logIntersection( bool, bool, bool );
