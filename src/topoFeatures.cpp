@@ -162,7 +162,8 @@ int inter_det::TopoFeature::checkLineIntersection(struct topo l1, struct topo l2
 	if ( ((std::min(l1.beg_x - LIN_SIGMA, l1.end_x + LIN_SIGMA) <= x && x <= std::max(l1.beg_x - LIN_SIGMA, l1.end_x + LIN_SIGMA)) &&
 	      (std::min(l1.beg_y - LIN_SIGMA, l1.end_y + LIN_SIGMA) <= y && y <= std::max(l1.beg_y - LIN_SIGMA, l1.end_y + LIN_SIGMA))) ||
 	     ((std::min(l2.beg_x - LIN_SIGMA, l2.end_x + LIN_SIGMA) <= x && x <= std::max(l2.beg_x - LIN_SIGMA, l2.end_x + LIN_SIGMA)) &&
-	      (std::min(l2.beg_y - LIN_SIGMA, l2.end_y + LIN_SIGMA) <= y && y <= std::max(l2.beg_y - LIN_SIGMA, l2.end_y + LIN_SIGMA))))
+	      (std::min(l2.beg_y - LIN_SIGMA, l2.end_y + LIN_SIGMA) <= y && y <= std::max(l2.beg_y - LIN_SIGMA, l2.end_y + LIN_SIGMA))) ||
+	     ((x > l2.beg_x && std::min(l1.beg_x,l1.end_x) > l2.beg_x) || (x < l2.beg_x && std::min(l1.beg_x,l1.end_x))))
 		return FRONT;	
 	else if( x > l1.end_x || y > l1.end_y )
 		if( x > l2.beg_x || y > l2.beg_y )
@@ -177,13 +178,13 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 {
 	float para_x, para_y, begx, begy;
 	bool rev;
-	int sign;
+	bool flag = true;
 	float t = 0.01;
 	para_x = l1.end_x - l1.beg_x;
 	para_y = l1.end_y - l1.beg_y;
 	begx = l1.beg_x; begy = l1.beg_y;
-	(begx < l2.beg_x)? sign = -1 : sign = 1;
-	while( sign*begx < l2.beg_x && std::abs(begx) < 10 && std::abs(begy) < 10)
+	(begx < 0)? rev = false : rev = true;
+	while( flag && std::abs(begx) < 10 && std::abs(begy) < 10)
 	{
 		ROS_INFO_STREAM( "TopoFeature::checkParlell: In while loop!" << begx
 				 << " parax: " << para_x << " begy: " << begy
@@ -195,6 +196,10 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 		{
 			ROS_INFO_STREAM( "TopoFeature::checkParlell: They meet hence front" );
 			return FRONT;
+		}
+		if((rev && begx > l2.beg_x) || (!rev && begx < l2.beg_x))
+		{
+			flag = false;
 		}
 	}
 	return LEFT;
@@ -315,8 +320,7 @@ int inter_det::TopoFeature::buildRelation()
 		else
 			fr->angle = br->angle = acos(dot_prod/mag_prod);
 
-		if(std::abs(fr->angle - PER_ANG) < ANG_SIGMA ||
-		   std::abs(fr->angle - ACU_ANG) < A_ANG_SIGMA )
+		if(std::abs(fr->angle - PER_ANG) < C_ANG_SIGMA )
 		{
 			ROS_INFO_STREAM( "TopoFeature::buildRelation: Found a perpendicular angle!" );
 			if( checkLineIntersection(topo_vec_[cur], topo_vec_[next]) == FRONT )
@@ -357,9 +361,8 @@ int inter_det::TopoFeature::buildRelation()
                                         br->side_gap = fr->side_gap = true;
 			}
 		}
-		else if( std::abs(fr->angle - PAR_ANG) < ANG_SIGMA || 
-		         std::abs(fr->angle) < ANG_SIGMA ||
-			 std::abs(fr->angle - OBT_ANG) < O_ANG_SIGMA)
+		else if( std::abs(fr->angle - PAR_ANG) < C_ANG_SIGMA || 
+		         std::abs(fr->angle) < C_ANG_SIGMA )
 		{
 			ROS_INFO_STREAM( "TopoFeature::buildRelation: Found a parlell angle!" );
 			if( checkParlell(topo_vec_[cur], topo_vec_[next]) == FRONT )

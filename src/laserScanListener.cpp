@@ -5,7 +5,7 @@
     tf_(),
     scan_mutex_(),
     filter_chain_("sensor_msgs::LaserScan"),
-    theta_min_(0.1f),
+    theta_min_(0.5f),
     scan_recv_(false)
   {
     ROS_INFO("LaserScanListener::LaserScanListener: Created new node!");
@@ -272,18 +272,18 @@ void LaserScanListener::processScan()
     		      "begin: " << std::distance(pcl_cloud_->begin(),begin) <<
 		      "end: " << std::distance(pcl_cloud_->begin(),end));
 
-    if(std::distance(begin,end) < 10)
+    /*if(std::distance(begin,end) < 10)
     {
     	ROS_INFO_STREAM( "LaserScanListener::detectLineSegments: The number of scans [" << std::distance(begin,end) << "] is less than the line threshold." );
 	return;
-    }
+    }*/
 
     pcl::PointCloud<pcl::PointXYZ>::iterator ppit_ls,ppit_fi,ppit_bi;
 
     int kf,kb;
     float euc_dist_fi, euc_dist_bi, real_dist_fi, real_dist_bi, dot_product, mag_product, mag_f, mag_b, theta_i, f_vec[2], b_vec[2], Uk;
     bool flag_fi,flag_bi;
-    flag_fi = 1;flag_bi = 1;Uk = 0.03f;
+    flag_fi = 1;flag_bi = 1;Uk = 0.1f;
 
     if( begin < pcl_cloud_->begin() && begin > pcl_cloud_->end())
     {
@@ -304,11 +304,14 @@ void LaserScanListener::processScan()
 			    std::distance(pcl_cloud_->begin(), ppit_ls));
 	ppit_fi = ppit_ls + 1;
 	ppit_bi = ppit_ls - 1;
+
 	ROS_INFO_STREAM( "ppit_fi: " << std::distance(pcl_cloud_->begin(),ppit_fi) <<
 			" ("<<ppit_fi->x<<","<<ppit_fi->y<<")"<<
 			 " ppit_bi: " << std::distance(pcl_cloud_->begin(),ppit_bi)<<
-			 "("<<ppit_bi->x<<","<<ppit_bi->y<<")");
-    	ppit_fi = ppit_bi = ppit_ls;
+			 "("<<ppit_bi->x<<","<<ppit_bi->y<<")" <<
+			 " ppit_ls: " << std::distance(pcl_cloud_->begin(),ppit_ls) <<
+			 "("<<ppit_ls->x<<","<<ppit_ls->y<<")");
+    	//ppit_fi = ppit_bi = ppit_ls;
       	flag_fi = flag_bi = 1;
       	real_dist_fi = real_dist_bi = 0.0f;
       	kf = 0;kb = 0;
@@ -325,30 +328,44 @@ void LaserScanListener::processScan()
 		if((euc_dist_fi < (real_dist_fi - Uk)) || (ppit_fi >= end))
 		{
 	  		flag_fi = 0;
+			/*if(std::distance(ppit_fi,end) > 0)
+			{
+				ROS_INFO_STREAM("Reached end: " <<
+					std::distance(ppit_fi,end) <<
+					":" << ppit_fi->x<< "," << ppit_fi->y);
+				ppit_fi--;
+			}*/
+			ROS_INFO_STREAM( "Iterator: " << std::distance(pcl_cloud_->begin(),ppit_fi));
 	  		ROS_INFO_STREAM("LaserScanListener::detectLineSegments:[Forward] Reached the end of pcl_cloud_ or euclidean distance " << euc_dist_fi << "less than real laser distance " << real_dist_fi);
 		}
-		ppit_fi++;kf++;
+		else
+			ppit_fi++;
       	}
 
       	while(flag_bi)
       	{
         	euc_dist_bi = computeEuclidDist(ppit_bi,ppit_ls);
 
-		real_dist_bi += computeEuclidDist(ppit_bi,ppit_bi-1);
+		real_dist_bi += computeEuclidDist(ppit_bi,ppit_bi+1);
 		if(std::isinf(real_dist_bi))
 	  		real_dist_bi = 0.0f;
 
 		if((euc_dist_bi < (real_dist_bi - Uk)) || (ppit_bi <= begin))
 		{
 	  		flag_bi = 0;
+                        /*if(std::distance(begin,ppit_bi) < 0)
+                        {
+                                ROS_INFO_STREAM("Reached end: " << 
+					std::distance(ppit_bi,end) << ":" 
+					<< ppit_bi->x << "," << ppit_bi->y);
+                                ppit_bi++;
+                        }*/
+			ROS_INFO_STREAM("Iterator: " << std::distance(pcl_cloud_->begin(),ppit_bi));
 	  		ROS_INFO_STREAM("LaserScanListener::detectLineSegments:[Backward] Reached the beginning of pcl_cloud_ or euclidean distance " << euc_dist_bi << " less than real laser distance" << real_dist_bi);
 		}
-
-		ppit_bi--;kb++;
+		else
+			ppit_bi--;
       	}
-
-      	kf-=2;kb-=2;
-      	ROS_INFO("Printing kf and kb:<%d,%d>",kf,kb);
 
       	//ROS_INFO("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
       	//ROS_INFO("Forward vec points:<%f,%f> Backward vec points:<%f,%f> Current point:<%f,%f>",
@@ -356,15 +373,15 @@ void LaserScanListener::processScan()
       	//ROS_INFO("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
 
       	//STEP 2
-      	f_vec[0] = ppit_ls->x-(ppit_ls+kf)->x;f_vec[1] = ppit_ls->y-(ppit_ls+kf)->y;
-      	b_vec[0] = ppit_ls->x-(ppit_ls-kb)->x;b_vec[1] = ppit_ls->y-(ppit_ls-kb)->y;
+      	f_vec[0] = ppit_ls->x-ppit_fi->x;f_vec[1] = ppit_ls->y-ppit_fi->y;
+      	b_vec[0] = ppit_ls->x-ppit_bi->x;b_vec[1] = ppit_ls->y-ppit_bi->y;
 
       
       	ROS_INFO("LaserScanListener::detectLineSegments[Step 2]: Forward vector:[%f,%f], Backward Vector:[%f,%f]",
 			f_vec[0],f_vec[1],b_vec[0],b_vec[1]);
       	ROS_INFO_STREAM( "LaserScanListener::detectLineSegments: Points:\n" << 
-		      "Forward : (" << (ppit_ls+kf)->x << "," << (ppit_ls+kf)->y << ")\n" <<
-		      "Backward: (" << (ppit_ls-kb)->x << "," << (ppit_ls-kb)->y << ")\n" <<
+		      "Forward : (" << ppit_fi->x << "," << ppit_fi->y << ")\n" <<
+		      "Backward: (" << ppit_bi->x << "," << ppit_bi->y << ")\n" <<
 		      "Current : (" << ppit_ls->x << "," << ppit_ls->y << ")");
 
       	dot_product = f_vec[0]*b_vec[0] + f_vec[1]*b_vec[1];
@@ -393,15 +410,15 @@ void LaserScanListener::processScan()
 
 
       	//STEP 3
-      	if(((theta_i < theta_min_) || ((theta_i - M_PI) < theta_min_)) && ((kf+kb)>=10))
+      	if(((std::abs(theta_i) <= theta_min_) || (std::abs(theta_i - M_PI) < theta_min_)) && ((real_dist_fi + real_dist_bi)>=0.2))
       	{
         	ppit_ls->z = ppit_ls->z * 10 + 1;
 		int pos = (std::distance(pcl_cloud_->begin(),ppit_ls-kb) + 
 				std::distance(pcl_cloud_->begin(),ppit_ls+kf))/2;
 		//ROS_INFO("LaserScanListener::detectLineSegments: Line segment detected <%f>",ppit_ls->z);
 		topo_feat_.addTopoFeat(LINE, pos, 
-				(ppit_ls-kb)->x, (ppit_ls-kb)->y, 
-				(ppit_ls+kf)->x,(ppit_ls+kf)->y, 
+				ppit_bi->x, ppit_bi->y, 
+				ppit_fi->x,ppit_fi->y, 
 				ros::Time::now().toSec());
 		/*try
 		{
@@ -422,9 +439,14 @@ void LaserScanListener::processScan()
       	}
       	else
       	{
-	      	ROS_INFO_STREAM( "LaserScanListener::detectLineSegments[Step 3]: theta_i:" << theta_i 
-				<< "theta_min: " << theta_min_ << "Kf and Kb: (" << kf << "," << kb << ")");
+	      	ROS_INFO_STREAM( "LaserScanListener::detectLineSegments[Step 3]: theta_i:" << theta_i << "theta_min: " << theta_min_ );
       	}
+
+	/*if(std::distance(ppit_fi,end) == 0)
+	{
+		ROS_INFO( "LaserScanListener::detectLineSegments: Already reached the end!" );
+		break;
+	}*/
     }
     ROS_INFO("LaserScanListener::detectLineSegments: Finished!");
     topo_feat_.printTopoFeatures();

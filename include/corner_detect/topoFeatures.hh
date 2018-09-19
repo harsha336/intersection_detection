@@ -11,6 +11,7 @@
 #define LEF_TUR_ANG 3.0
 #define SIGMA 0.4
 #define ANG_SIGMA 0.35
+#define C_ANG_SIGMA 0.7
 #define A_ANG_SIGMA 0.45
 #define O_ANG_SIGMA 0.45
 #define LIN_SIGMA 0.2
