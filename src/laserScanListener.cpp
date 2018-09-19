@@ -3,6 +3,7 @@
   LaserScanListener::LaserScanListener() :
     nh_private_("~"),
     tf_(),
+    scan_mutex_(),
     filter_chain_("sensor_msgs::LaserScan"),
     theta_min_(0.1f),
     scan_recv_(false)
@@ -39,13 +40,32 @@
 	    return;
     }
     ROS_INFO_STREAM( "LaserScanListener::scanCallback: After calling detectBreakPoint" );
-    
-    detectBreakPoint(scan);
+    try
+    {
+    	if(checkLastProcessTime())
+	{
+    		scan_mutex_.lock();
+    		detectBreakPoint(scan);
+		scan_mutex_.unlock();
+	}
+	else
+	{
+		ROS_INFO_STREAM( "LaserScanListener::scanCallback: Last proc time: "
+				   	<< last_proc_time_ << 
+					"Allowing time!");
+	}
+    }
+    catch ( std::exception const &e )
+    {
+    	ROS_INFO_STREAM( "LaserScanListener::scanCallback: Unable to lock: " <<
+				e.what());
+    }
+	
     //if(pcl_cloud_.unique())
 //	    pcl_cloud_.reset();
     //delete pcl_cloud_;
-    scan_recv_ = true;
-    ROS_INFO_STREAM( "LaserScanListener::scanCallback: Setting scan_recv_ to: " << scan_recv_);
+    //scan_recv_ = true;
+    //ROS_INFO_STREAM( "LaserScanListener::scanCallback: Setting scan_recv_ to: " << scan_recv_);
   }
 
   bool LaserScanListener::convertScanToPointCloud(sensor_msgs::LaserScan& scan)
@@ -103,7 +123,7 @@
 
     bool prev_range_set = 0;
 
-    delta_phi = scan.angle_increment; lambda = 0.174f; sigma_r = 0.005;
+    delta_phi = scan.angle_increment; lambda = 0.174f; sigma_r = 0.05;
 
     start = pcl_iter = pcl_cloud_->begin()+1;
 
@@ -112,15 +132,21 @@
       prev_range = scan.ranges[0];
       prev_range_set = 1;
     }
+    topo_feat_.clearTopoVector();
 
     ROS_INFO("FOR LOOP BEGIN");
     float angle;
+    ROS_INFO( "LaserScanListener::detectBreakPoint: printTopo before" );
+    //topo_feat_.clearTopoFeatures();
+    //scan_recv_ = false;
+    topo_feat_.printTopoFeatures();
     for(int i=1;i<scan.ranges.size();i++){
       angle = (i*delta_phi) + scan.angle_min;
       ROS_INFO("<%d>:Scan data:Range <%f>, Angle <%f>",i,scan.ranges[i],angle);
       if(std::abs(scan.ranges[i]) > 10)
       {
         ROS_INFO_STREAM( "LaserScanListener::detectBreakPoint: Inf continuing" );
+	prev_range_set = false;
 	continue;
       }
 
@@ -143,7 +169,7 @@
 	    ROS_INFO_STREAM( "LaserScanListener::detectBreakPoint: Angle reached here: " << angle); 
 	    ROS_INFO_STREAM( "LaserScanListener::detectBreakPoint: Points got from laser scan :<" <<scan.ranges[i]*cos(angle) << "," << scan.ranges[i]*sin(angle) << ">");
 	    ROS_INFO_STREAM( "LaserScanListener::detectBreakPoint: Starting from : " << std::distance(pcl_cloud_->begin(),start) << " to :" << std::distance(pcl_cloud_->begin(),pcl_iter-1));
-	    detectLineSegments(start, pcl_iter-1);
+	    detectLineSegments(start-1, pcl_iter-1);
 	    //detectCurveAndCorner(start, pcl_iter-1);
 	    
 	  //}
@@ -188,6 +214,9 @@
     {
 	ROS_INFO("Should have processed all point clouds!");
     }
+    ROS_INFO( "LaserScanListener::detectBreakPoint: printTopo after" );
+    topo_feat_.printTopoFeatures();
+    scan_recv_ = true;
     ROS_INFO("FOR LOOP END!");
     //pcl_cloud_.reset();
     return;
@@ -200,8 +229,11 @@ void LaserScanListener::processScan()
 	ros::Rate r(10);
 	while( nh_.ok())
 	{
-		if(scan_recv_)
-		{
+	    	try{
+		    last_proc_time_ = ros::Time::now();
+		    if(scan_recv_)
+		    {
+		    	scan_mutex_.lock();
 			rel_ret = topo_feat_.buildRelation();
 			ROS_INFO_STREAM( "LaserScanListener::processScan: Return is: " << rel_ret);
 			//topo_feat_.printRelation();
@@ -210,10 +242,17 @@ void LaserScanListener::processScan()
 				topo_feat_.printRelation();
 				int_ret = topo_feat_.identifyIntersection();
 			}
-			topo_feat_.clearTopoFeatures(rel_ret);
+			topo_feat_.clearTopoFeatures(std::abs(rel_ret));
 			ROS_INFO_STREAM( "LaserScanListener::processScan: Returned from clearTopoFeatures" );
+			scan_mutex_.unlock();
+		    }
 		}
-		scan_recv_ = false;
+		catch( std::exception const &e )
+		{
+			ROS_INFO_STREAM( "LaserScanListener::processScan: Scan mutex lock failed: " <<
+						e.what());
+		}
+		//scan_recv_ = false;
 		ros::spinOnce();
 		r.sleep();
 	}
@@ -228,6 +267,16 @@ void LaserScanListener::processScan()
     int inter;
     ROS_INFO("LaserScanListener::detectLineSegments: Method entered!");
     ROS_INFO("LaserScanListener::detectLineSegments:HARSHA: Detecting line segments between two break points <%f,%f> and <%f,%f> having <%d> laser scans.",begin->x,begin->y,end->x,end->y,(int)std::distance(begin,end));
+
+    ROS_INFO_STREAM( "LaserScanListener::detectLineSegments: Pcl params: " <<
+    		      "begin: " << std::distance(pcl_cloud_->begin(),begin) <<
+		      "end: " << std::distance(pcl_cloud_->begin(),end));
+
+    if(std::distance(begin,end) < 10)
+    {
+    	ROS_INFO_STREAM( "LaserScanListener::detectLineSegments: The number of scans [" << std::distance(begin,end) << "] is less than the line threshold." );
+	return;
+    }
 
     pcl::PointCloud<pcl::PointXYZ>::iterator ppit_ls,ppit_fi,ppit_bi;
 
@@ -251,10 +300,14 @@ void LaserScanListener::processScan()
 
     for(ppit_ls = begin+1;ppit_ls<=end-1;ppit_ls++)
     {
-	ROS_INFO_STREAM("LaserScanListener::detectLineSegments: Current point is : " <<
-			    std::distance(ppit_ls,pcl_cloud_->begin()));
+	ROS_INFO_STREAM("LaserScanListener::detectLineSegments: Current point is : " << 
+			    std::distance(pcl_cloud_->begin(), ppit_ls));
 	ppit_fi = ppit_ls + 1;
 	ppit_bi = ppit_ls - 1;
+	ROS_INFO_STREAM( "ppit_fi: " << std::distance(pcl_cloud_->begin(),ppit_fi) <<
+			" ("<<ppit_fi->x<<","<<ppit_fi->y<<")"<<
+			 " ppit_bi: " << std::distance(pcl_cloud_->begin(),ppit_bi)<<
+			 "("<<ppit_bi->x<<","<<ppit_bi->y<<")");
     	ppit_fi = ppit_bi = ppit_ls;
       	flag_fi = flag_bi = 1;
       	real_dist_fi = real_dist_bi = 0.0f;
@@ -269,10 +322,10 @@ void LaserScanListener::processScan()
 		//if(std::isinf(real_dist_fi))
 	  	//	real_dist_fi = 0.0f;
 	
-		if((euc_dist_fi < (real_dist_fi - Uk)) || (ppit_fi > end))
+		if((euc_dist_fi < (real_dist_fi - Uk)) || (ppit_fi >= end))
 		{
 	  		flag_fi = 0;
-	  		ROS_INFO_STREAM("LaserScanListener::detectLineSegments: Reached the end of pcl_cloud_ or euclidean distance " << euc_dist_fi << "less than real laser distance " << real_dist_fi);
+	  		ROS_INFO_STREAM("LaserScanListener::detectLineSegments:[Forward] Reached the end of pcl_cloud_ or euclidean distance " << euc_dist_fi << "less than real laser distance " << real_dist_fi);
 		}
 		ppit_fi++;kf++;
       	}
@@ -285,10 +338,10 @@ void LaserScanListener::processScan()
 		if(std::isinf(real_dist_bi))
 	  		real_dist_bi = 0.0f;
 
-		if((euc_dist_bi < (real_dist_bi - Uk)) || (ppit_bi < begin))
+		if((euc_dist_bi < (real_dist_bi - Uk)) || (ppit_bi <= begin))
 		{
 	  		flag_bi = 0;
-	  		ROS_INFO_STREAM("LaserScanListener::detectLineSegments: Reached the beginning of pcl_cloud_ or euclidean distance " << euc_dist_bi << " greater than real laser distance" << real_dist_bi);
+	  		ROS_INFO_STREAM("LaserScanListener::detectLineSegments:[Backward] Reached the beginning of pcl_cloud_ or euclidean distance " << euc_dist_bi << " less than real laser distance" << real_dist_bi);
 		}
 
 		ppit_bi--;kb++;
@@ -324,7 +377,9 @@ void LaserScanListener::processScan()
       	theta_i = acos(dot_product/mag_product);
       
       	if(std::isinf(theta_i) || std::isnan(theta_i))
-       	theta_i = 0;
+       		theta_i = 0;
+	
+	ROS_INFO_STREAM( "LaserScanListener::detectLineSegments[Step 3]: theta_i is: " << theta_i );
        
       	/*if (theta_i!=0)
       	{
@@ -341,9 +396,13 @@ void LaserScanListener::processScan()
       	if(((theta_i < theta_min_) || ((theta_i - M_PI) < theta_min_)) && ((kf+kb)>=10))
       	{
         	ppit_ls->z = ppit_ls->z * 10 + 1;
+		int pos = (std::distance(pcl_cloud_->begin(),ppit_ls-kb) + 
+				std::distance(pcl_cloud_->begin(),ppit_ls+kf))/2;
 		//ROS_INFO("LaserScanListener::detectLineSegments: Line segment detected <%f>",ppit_ls->z);
-		topo_feat_.addTopoFeat(LINE, (kf + kb)/2, (ppit_ls-kb)->x, (ppit_ls-kb)->y, 
-				(ppit_ls+kf)->x,(ppit_ls+kf)->y, ros::Time::now().toSec());
+		topo_feat_.addTopoFeat(LINE, pos, 
+				(ppit_ls-kb)->x, (ppit_ls-kb)->y, 
+				(ppit_ls+kf)->x,(ppit_ls+kf)->y, 
+				ros::Time::now().toSec());
 		/*try
 		{
 			cur_tf_ = buffer_.lookupTransform(odom_, base_link_, ros::Time(0));

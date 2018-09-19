@@ -19,6 +19,17 @@ void inter_det::TopoFeature::addTopoFeat(int feat, int pos, float beg_x, float b
 	(std::abs(topo_vec_[ti].end_x - end_x) < LIN_SIGMA) &&
 	(std::abs(topo_vec_[ti].end_y - end_y) < LIN_SIGMA))
       {
+      	if(beg_y > 0 && (topo_vec_[ti].end_x < end_x))
+	{
+		topo_vec_[ti].end_x = end_x;
+		topo_vec_[ti].end_y = end_y;
+	}
+	else
+	if(beg_y < 0 && topo_vec_[ti].end_x > end_x)
+	{
+		topo_vec_[ti].end_x = end_x;
+		topo_vec_[ti].end_y = end_y;
+	}
         int prev_type = topo_vec_[ti].feat;
 	if(topo_vec_[ti].feat == LINE && feat == CURVE)
 	  topo_vec_[ti].feat == feat;
@@ -51,31 +62,57 @@ void inter_det::TopoFeature::setCurrentTf(tf::Transform t)
 	cur_tf_ = t;
 }
 
-void inter_det::TopoFeature::clearTopoFeatures(int node_count)
+void inter_det::TopoFeature::clearTopoFeatures(int ret_count)
 {
 	ROS_INFO("TopoFeature::clearTopoFeatures: Clearing all the topological features!");
-	topo_vec_.clear();
-	node_ref_ = node_head_;
+	//topo_vec_.clear();
+	struct node *temp, *temp_h;
+	if(node_head_ != NULL)
+		temp_h = node_head_;
+	else
+		return;
 	int end;
 	int count = 0;
-	/*while( true )
+	while( temp_h != NULL )
 	{
 		count++;
+		/*count++;
 		end = node_ref_->type;
 		if(node_count < 0 && std::abs(node_count) >= count)
-			break;
+			break;*/
 		ROS_INFO_STREAM( "TopoFeature::clearTopoFeatures: Deleting node: " <<
-				node_ref_->type);
-		ROS_INFO_STREAM( "TopoFeature::clearTopoFeatures: Count" <<
-			count);
-		node_head_ = node_ref_->fr->next;
-		delete node_ref_;
-		if(end == END) 
+				temp_h->type);
+		if(temp_h->type > 4 || temp_h->type < 1)
+		{
+			ROS_INFO("Bye Bye");
+			//delete node_ref_;
 			break;
+		}
+		/*ROS_INFO_STREAM( "TopoFeature::clearTopoFeatures: Count" <<
+			count);*/
+		if(count >= ret_count)
+		{
+			ROS_INFO("Bye Bye Bye");
+			delete temp_h;
+			break;
+		}
+		ROS_INFO( "TopoFeature::clearTopoFeatures: before node_ref_->fr" );
+		if( temp_h->fr != NULL)
+		{
+			ROS_INFO_STREAM( "TopoFeature::clearTopoFeatures: Node relation of type: " << temp_h->fr->angle);
+			temp = temp_h->fr->next;
+		}
 		else
-			node_ref_ = node_head_;
-	}*/
-	for( unsigned int i = 0;i < topo_vec_.size();i++ )
+			temp_h = NULL;
+		ROS_INFO( "TopoFeature::clearTopoFeatures: before delete");
+		delete temp;
+		/*if(end == END) 
+			break;
+		else*/
+		ROS_INFO( "TopoFeature::clearTopoFeatures: before assign");
+		temp_h = temp;
+	}
+	/*for( unsigned int i = 0;i < topo_vec_.size();i++ )
 	{
 		ROS_INFO_STREAM( "TopoFeature::clearTopoFeatures: Deleting node: " << node_ref_->type);
 		if(node_ref_->fr != NULL)
@@ -83,7 +120,9 @@ void inter_det::TopoFeature::clearTopoFeatures(int node_count)
 			node_ref_ = node_ref_->fr->next;
 		}
 		delete node_ref_;
-	}
+	}*/
+	topo_vec_.clear();
+	ROS_INFO( "TopoFeature::clearTopoFeatures: Finished clearing!" );
 	return;
 }
 
@@ -151,7 +190,8 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 				 << " paray: " << para_y );
 		begx = begx + para_x*t;
 		begy = begy + para_y*t;
-		if((begx - l2.beg_x) < LIN_SIGMA && (begy - l2.beg_y) < LIN_SIGMA)
+		if(std::abs(begx - l2.beg_x) < LIN_SIGMA && 
+		   std::abs(begy - l2.beg_y) < LIN_SIGMA)
 		{
 			ROS_INFO_STREAM( "TopoFeature::checkParlell: They meet hence front" );
 			return FRONT;
@@ -179,6 +219,8 @@ int inter_det::TopoFeature::buildRelation()
 	float vec1[2], vec2[2];
 	float dot_prod, mag_prod;
 	int temp; std::string temp_str;
+	float prev_beg_x, prev_end_y;
+	prev_beg_x = prev_end_y = 0;
 	for (unsigned int i = 0;i < topo_vec_.size();i++)
 	{
 		node_count++;
@@ -273,7 +315,8 @@ int inter_det::TopoFeature::buildRelation()
 		else
 			fr->angle = br->angle = acos(dot_prod/mag_prod);
 
-		if(std::abs(fr->angle - PER_ANG) < ANG_SIGMA)
+		if(std::abs(fr->angle - PER_ANG) < ANG_SIGMA ||
+		   std::abs(fr->angle - ACU_ANG) < A_ANG_SIGMA )
 		{
 			ROS_INFO_STREAM( "TopoFeature::buildRelation: Found a perpendicular angle!" );
 			if( checkLineIntersection(topo_vec_[cur], topo_vec_[next]) == FRONT )
@@ -285,7 +328,7 @@ int inter_det::TopoFeature::buildRelation()
 				temp = FRONT;
 				temp_str = "FRONT";
 				if(dist(topo_vec_[cur].end_x, topo_vec_[cur].end_y,
-                                                topo_vec_[next].beg_x, topo_vec_[next].beg_y) > GAP_SIGMA)
+                                                topo_vec_[next].beg_x, topo_vec_[next].beg_y) > LIN_GAP_SIGMA)
                                         br->same_gap = fr->same_gap = true;
 
 			}
@@ -298,7 +341,7 @@ int inter_det::TopoFeature::buildRelation()
 				temp = LEFT;
 				temp_str = "LEFT";
 				if(dist(topo_vec_[cur].end_x, topo_vec_[cur].end_y,
-                                                topo_vec_[next].beg_x, topo_vec_[next].beg_y) > GAP_SIGMA)
+                                                topo_vec_[next].beg_x, topo_vec_[next].beg_y) > LIN_GAP_SIGMA)
                                         br->side_gap = fr->side_gap = true;
 			}
 			else if(checkLineIntersection(topo_vec_[cur], topo_vec_[next]) == RIGHT)
@@ -310,11 +353,13 @@ int inter_det::TopoFeature::buildRelation()
 				temp = RIGHT;
 				temp_str = "RIGHT";
 				if(dist(topo_vec_[cur].end_x, topo_vec_[cur].end_y,
-                                                topo_vec_[next].beg_x, topo_vec_[next].beg_y) > GAP_SIGMA)
+                                                topo_vec_[next].beg_x, topo_vec_[next].beg_y) > LIN_GAP_SIGMA)
                                         br->side_gap = fr->side_gap = true;
 			}
 		}
-		else if( std::abs(fr->angle - PAR_ANG) < ANG_SIGMA || (std::abs(fr->angle) < ANG_SIGMA))
+		else if( std::abs(fr->angle - PAR_ANG) < ANG_SIGMA || 
+		         std::abs(fr->angle) < ANG_SIGMA ||
+			 std::abs(fr->angle - OBT_ANG) < O_ANG_SIGMA)
 		{
 			ROS_INFO_STREAM( "TopoFeature::buildRelation: Found a parlell angle!" );
 			if( checkParlell(topo_vec_[cur], topo_vec_[next]) == FRONT )
@@ -326,7 +371,7 @@ int inter_det::TopoFeature::buildRelation()
 				temp = FRONT;
 				temp_str = "FRONT";
 				if(dist(topo_vec_[cur].end_x, topo_vec_[cur].end_y,
-						topo_vec_[next].beg_x, topo_vec_[next].beg_y) > GAP_SIGMA)
+						topo_vec_[next].beg_x, topo_vec_[next].beg_y) > LIN_GAP_SIGMA)
 					br->same_gap = fr->same_gap = true;
 
 			}
@@ -339,7 +384,7 @@ int inter_det::TopoFeature::buildRelation()
                                 temp = LEFT;
                                 temp_str = "LEFT";
                                 if(dist(topo_vec_[cur].end_x, topo_vec_[cur].end_y,
-                                                topo_vec_[next].beg_x, topo_vec_[next].beg_y) > GAP_SIGMA)
+                                                topo_vec_[next].beg_x, topo_vec_[next].beg_y) > LIN_GAP_SIGMA)
                                         br->side_gap = fr->side_gap = true;
 			}
 			else
@@ -350,9 +395,32 @@ int inter_det::TopoFeature::buildRelation()
 		}
 		else
 		{
-			ROS_INFO_STREAM( "TopoFeature::buildRelation: Found a wierd angle: " << r->angle);
+			ROS_INFO_STREAM( "TopoFeature::buildRelation: Found a wierd angle: " << fr->angle);
 			return(-node_count);
 		}
+
+		/*if(new_node->type != 2 && new_node->type != 1)
+		{
+			if(prev_end_y < 0)
+			{
+				if(prev_beg_x < node_ref_->info.beg_x)
+				{
+					new_node->fr->rel_to = FRONT;
+					next_new_node->br->rel_to = BACK;
+					//temp_str = "FRONT";
+				}
+			}
+			else
+			{
+				if(prev_beg_x > node_ref_->info.beg_x)
+				{
+					new_node->fr->rel_to = FRONT;
+					next_new_node->br->rel_to = BACK;
+					//temp_str = "FRONT";
+				}
+			}
+		}*/
+
 		ROS_INFO_STREAM( "TopoFeature::buildRelation: Node [" << node_ref_->type <<
                                  "]: Info: <" << node_ref_->info.beg_x << "," << node_ref_->info.beg_y
                                  << "><" << node_ref_->info.end_x << "," << node_ref_->info.end_y
@@ -365,6 +433,8 @@ int inter_det::TopoFeature::buildRelation()
                                                   " same_gap: " << node_ref_->fr->same_gap << 
 						  " next type: " << node_ref_->fr->next->type );
 
+		prev_beg_x = node_ref_->info.beg_x;
+		prev_end_y = node_ref_->info.end_y;
 		node_ref_ = next_new_node;
 	}
 	return(node_count);
@@ -404,7 +474,9 @@ void inter_det::TopoFeature::printRelation()
 		//if( node_ref_->fr->next->type == BEG )
 		//	node_ref_ = NULL;
 		//else node_ref_ = node_ref_->fr->next;
-		if( node_ref_->fr != NULL ) node_ref_ = node_ref_->fr->next;
+
+		if( node_ref_->fr != NULL ) 
+			node_ref_ = node_ref_->fr->next;
 
 	}
 
@@ -476,7 +548,9 @@ int inter_det::TopoFeature::identifyIntersection()
 	{
 		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Inside while loop!" );
 
-		if ( right->fr->rel_to == FRONT || right->fr->rel_to == BACK ) 
+		if ( (right->fr->rel_to == FRONT || right->fr->rel_to == BACK) && 
+		     (std::abs(right->fr->angle - PAR_ANG) < ANG_SIGMA ||
+		      std::abs(right->fr->angle) < ANG_SIGMA) ) 
 		{
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Processed right forw Line: <" <<
 					right->info.beg_x << "," << right->info.beg_y << "><" <<
@@ -510,20 +584,25 @@ int inter_det::TopoFeature::identifyIntersection()
 					else
 					{
 						leftf = true;
+
 						ROS_INFO_STREAM( "TopoFeature::identifyIntersection: leftf set to: " << leftf);
 					}
 				}
 			}
+			center_space = true;
 			leftf = true;
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: leftf set to: " << leftf);
 		}
 		else
 		{
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Should not be here" );
+			center_space = true;
 			leftf = true;
 		}
 
-		if ( left->br->rel_to == BACK || left->br->rel_to == FRONT )
+		if ( (left->br->rel_to == BACK || left->br->rel_to == FRONT) &&
+		     (std::abs(left->fr->angle - PAR_ANG) < ANG_SIGMA ||
+		       std::abs(left->fr->angle) < ANG_SIGMA))
 		{
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Processed left forw Line: <" <<
                                         left->info.beg_x << "," << left->info.beg_y << "><" <<
@@ -561,6 +640,7 @@ int inter_det::TopoFeature::identifyIntersection()
 					}
                                 }
                         }
+			center_space = true;
 			rightf = true;
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: rightf set to: " << rightf);
 		}
@@ -577,6 +657,9 @@ int inter_det::TopoFeature::identifyIntersection()
 
 int inter_det::TopoFeature::logIntersection(bool right_space, bool left_space, bool center_space)
 {
+	ROS_INFO_STREAM("TopoFeature::identifyIntersection: center: "<< center_space <<
+					"left: " << left_space << "right: " << right_space);
+	
 	if(left_space && right_space && center_space)
         {
         	ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: FOUR_WAY" );
@@ -589,13 +672,29 @@ int inter_det::TopoFeature::logIntersection(bool right_space, bool left_space, b
         }
 	else if(left_space)
         {
-        	ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: Left" );
-                return LEFT;
+		if(center_space)
+		{
+        		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: Left-T" );
+                	return LEFT;
+		}
+		else
+		{
+			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: Left" );
+			return LEFT;
+		}
         }
         else if(right_space)
         {
-        	ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: RIGHT" );
-                return RIGHT;
+		if(center_space)
+		{
+        		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: RIGHT-T" );
+                	return RIGHT;
+		}
+		else
+		{
+			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: RIGHT" );
+			return RIGHT;
+		}
         }
         else
         {

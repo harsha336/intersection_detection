@@ -5,14 +5,17 @@
 
 #define PER_ANG 1.57
 #define PAR_ANG 3.14
-#define ACU_ANG 0.516
-#define OBT_ANG 2.62
+#define ACU_ANG 0.83
+#define OBT_ANG 2.35
 #define RIG_TUR_ANG 2.0
 #define LEF_TUR_ANG 3.0
 #define SIGMA 0.4
-#define ANG_SIGMA 0.1
-#define LIN_SIGMA 0.50
+#define ANG_SIGMA 0.35
+#define A_ANG_SIGMA 0.45
+#define O_ANG_SIGMA 0.45
+#define LIN_SIGMA 0.2
 #define GAP_SIGMA 1.5
+#define LIN_GAP_SIGMA 0.3
 
 namespace inter_det
 {
@@ -85,6 +88,7 @@ namespace inter_det
     int logIntersection( bool, bool, bool );
     void printRelation();
     int checkParlell(struct topo, struct topo);
+    void clearTopoVector() { topo_vec_.clear(); }
     float dist(float x1, float y1, float x2, float y2)
     {
 	    return(sqrt(pow((x2 - x1),2) + pow((y2 - y1),2)));

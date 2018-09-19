@@ -1,7 +1,7 @@
 <launch>
   <include file="$(find gazebo_ros)/launch/empty_world.launch" >
-        <!-- <arg name="world_name" value="$(find corner_detect)/world/se1.world" /> -->
-	<arg name="world_name" value="$(find logical_camera_plugin)/worlds/se1f1_12.world" />
+        <arg name="world_name" value="$(find corner_detect)/world/se1.world" />
+	<!-- <arg name="world_name" value="$(find logical_camera_plugin)/worlds/se1f1_12.world" />-->
         <arg name="paused" value="false"/>
         <arg name="use_sim_time" value="true"/>
         <arg name="gui" value="true"/>

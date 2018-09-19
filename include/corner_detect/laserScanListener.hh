@@ -15,6 +15,7 @@
 #include <math.h>
 #include "std_msgs/String.h"
 #include <corner_detect/topoFeatures.hh>
+#include <boost/thread/mutex.hpp>
 
 class LaserScanListener{
 
@@ -69,6 +70,8 @@ class LaserScanListener{
   tf2_ros::Buffer buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
+  boost::mutex scan_mutex_;
+
   enum features{BREAKPOINT,LINE,CURVE,CORNER};
   enum angle_range{UNKNOWN,acute,obtuse,per,par};
   enum intersec{TI,RI,RT,LI,LT};
@@ -76,6 +79,8 @@ class LaserScanListener{
   int seq_no_;
   inter_det::TopoFeature topo_feat_;
   bool scan_recv_;
+
+  ros::Time last_proc_time_;
   
 
   public: LaserScanListener();
@@ -90,6 +95,12 @@ class LaserScanListener{
   protected: float constrainAngle(float);
   protected: void publishIntersection(int);
   public: void processScan();
+  protected: bool checkLastProcessTime()
+  		{
+			if((ros::Time::now() - last_proc_time_).toSec() < 20)
+				return true;
+			return false;
+		}
 };
 
 
