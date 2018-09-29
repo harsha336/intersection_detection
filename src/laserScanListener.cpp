@@ -10,12 +10,13 @@
   {
     ROS_INFO("LaserScanListener::LaserScanListener: Created new node!");
     nh_private_.param("odom_frame", odom_, std::string("odom"));
-    nh_private_.param("base_link_frame", base_link_, std::string("base_link"));
+    nh_private_.param("base_link_frame", base_link_, std::string("chassis"));
     
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
     
     laser_sub_.subscribe(nh_,"/scan",10);
     //laser_sub_ = nh_.subscribe("/scan", 1,&LaserScanListener::scanCallback, this);
+
     laser_notifier_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tf_, base_link_.c_str(), 10);
     laser_notifier_->registerCallback(
       	boost::bind(&LaserScanListener::scanCallback, this, _1));
@@ -225,7 +226,8 @@
 void LaserScanListener::processScan()
 {
 	ROS_INFO_STREAM( "LaserScanListener::processScan: Method entered!" );
-	int rel_ret, int_ret;
+	int rel_ret;
+	inter_det::TopoFeature::intersection inter_pose;
 	ros::Rate r(10);
 	while( nh_.ok())
 	{
@@ -240,7 +242,8 @@ void LaserScanListener::processScan()
 			if( rel_ret > 0 )
 			{
 				topo_feat_.printRelation();
-				int_ret = topo_feat_.identifyIntersection();
+				inter_pose = topo_feat_.identifyIntersection();
+				publishIntersection(inter_pose);
 			}
 			topo_feat_.clearTopoFeatures(std::abs(rel_ret));
 			ROS_INFO_STREAM( "LaserScanListener::processScan: Returned from clearTopoFeatures" );
@@ -562,10 +565,10 @@ void LaserScanListener::processScan()
     //p_pub_.publish(p);
   }
 
-  void LaserScanListener::publishIntersection(int inter)
+  void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection i)
   {
     std_msgs::String msg;
-    switch(inter)
+    switch(i.type)
     {
       case TI: msg.data = "T_INTERSECTION";
                break;
@@ -577,6 +580,57 @@ void LaserScanListener::processScan()
                break;
       case LT: msg.data = "LEFT_TURN";
                break;
+      case UNKW: msg.data = "NO_INT";
+                 break;
+    }
+
+    tf::Transform odom_tf;
+    tf::Transform ct_pose, pt_pose;
+    if(i.type != UNKW)
+    {
+	try
+        {
+        	cur_tf_ = buffer_.lookupTransform(odom_, base_link_, ros::Time(0));
+        	odom_tf = (tf::Transform(tf::Quaternion(cur_tf_.transform.rotation.x,
+        				cur_tf_.transform.rotation.y,
+        				cur_tf_.transform.rotation.z,
+        				cur_tf_.transform.rotation.w),
+        			tf::Vector3(cur_tf_.transform.translation.x,
+        				cur_tf_.transform.translation.y,
+        				cur_tf_.transform.translation.z)));
+		ct_pose = odom_tf*i.p;
+		if(prev_mp_.set)
+		{
+			//if(i.type == prev_mp_.type)
+			//{
+				ROS_INFO_STREAM("FINAL: Current Pose: "<<ct_pose.getOrigin().x() <<","
+							<<ct_pose.getOrigin().y()<<","
+							<<ct_pose.getOrigin().z());
+				ROS_INFO_STREAM("FINAL: Previou Pose: "<<prev_mp_.t.getOrigin().x()<<","
+							<<ct_pose.getOrigin().y()<<","
+							<<prev_mp_.t.getOrigin().z());
+			//}
+		}
+		else 
+		{
+			ROS_INFO_STREAM("FINAL: New pose: "<<ct_pose.getOrigin().x() << ","
+							<<ct_pose.getOrigin().y() <<","
+							<<ct_pose.getOrigin().z());
+			prev_mp_.set = true;
+			prev_mp_.t = ct_pose;
+			prev_mp_.type = i.type;
+		}
+        }
+	
+        catch(tf::TransformException &ex)
+        {
+        	ROS_ERROR("LaserScanListener::detectLineSegments: Clearing topo features : %s",ex.what());
+        }
+    }
+    else
+    {
+    	prev_mp_.set = false;
+	prev_mp_.type = UNKW;
     }
     int_pub_.publish(msg);
   }

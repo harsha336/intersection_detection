@@ -21,15 +21,12 @@ class LaserScanListener{
 
 
 //public:
-  struct PointParamters
+  struct intersection
   {
-    float x;float y;float z;
-    int pointType;
-    int kf;
-    int kb;
-    float theta;
-    float ci;
-  };
+  	int type;
+	bool set;
+	tf::Transform t;
+  } prev_mp_;
 
   ros::NodeHandle nh_private_, nh_;
 
@@ -42,11 +39,14 @@ class LaserScanListener{
   tf::TransformListener tf_;
   geometry_msgs::TransformStamped cur_tf_;
 
-  std::string odom_, base_link_;
+  std::string odom_, base_link_, base_laser_;
 
   // Subscriber to laser scan
   message_filters::Subscriber<sensor_msgs::LaserScan> laser_sub_;
   //ros::Subscriber laser_sub_;
+  ros::Subscriber odom_sub_;
+  geometry_msgs::PoseStamped odom_pose_;
+  bool odom_set_ = true;
 
   //Used to register callback but not for the actual purpose.
   tf::MessageFilter<sensor_msgs::LaserScan> *laser_notifier_;
@@ -74,8 +74,9 @@ class LaserScanListener{
 
   enum features{BREAKPOINT,LINE,CURVE,CORNER};
   enum angle_range{UNKNOWN,acute,obtuse,per,par};
-  enum intersec{TI,RI,RT,LI,LT};
+  enum intersec{TI,RI,RT,LI,LT,FWI,UNKW};
   ros::Publisher int_pub_;
+  
   int seq_no_;
   inter_det::TopoFeature topo_feat_;
   bool scan_recv_;
@@ -93,11 +94,12 @@ class LaserScanListener{
   protected: void publishPoint(pcl::PointCloud<pcl::PointXYZ>::iterator,int);
   protected: bool convertScanToPointCloud(sensor_msgs::LaserScan& scan);
   protected: float constrainAngle(float);
-  protected: void publishIntersection(int);
+  protected: void publishIntersection(inter_det::TopoFeature::intersection);
+  
   public: void processScan();
   protected: bool checkLastProcessTime()
   		{
-			if((ros::Time::now() - last_proc_time_).toSec() < 20)
+			if((ros::Time::now() - last_proc_time_).toSec() < 2)
 				return true;
 			return false;
 		}

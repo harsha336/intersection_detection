@@ -1,5 +1,5 @@
 #include <corner_detect/topoFeatures.hh>
-
+using namespace ros;
 void inter_det::TopoFeature::addTopoFeat(int feat, int pos, float beg_x, float beg_y, float end_x,float  end_y,float time)
 {
   ROS_INFO("TopoFeature::addTopoFeat: Adding topo feature: <%d,%d,(%f,%f),(%f,%f),%f>",feat,pos,beg_x,beg_y,end_x,end_y,time);
@@ -195,6 +195,12 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 		   std::abs(begy - l2.beg_y) < LIN_SIGMA)
 		{
 			ROS_INFO_STREAM( "TopoFeature::checkParlell: They meet hence front" );
+			return FRONT;
+		}
+		else if(std::abs(begx - l2.end_x) < LIN_SIGMA &&
+		        std::abs(begy - l2.end_x) < LIN_SIGMA)
+		{
+			ROS_INFO_STREAM( "TopoFeature::checkParlell: Same as the next line" );
 			return FRONT;
 		}
 		if((rev && begx > l2.beg_x) || (!rev && begx < l2.beg_x))
@@ -510,7 +516,7 @@ void inter_det::TopoFeature::printRelation()
         }
 }
 
-int inter_det::TopoFeature::identifyIntersection()
+inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersection()
 {
 	bool left_space, right_space, center_space, leftf, rightf;
 	leftf = rightf = left_space = right_space = center_space = false;
@@ -520,7 +526,8 @@ int inter_det::TopoFeature::identifyIntersection()
 	if( node_head_ == NULL )
 	{
 		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: No tree to traverse!" );
-		return UNKNOWN;
+		pose_.type = UNKW;
+		return(pose_);
 	}
 	else
 	{
@@ -599,7 +606,8 @@ int inter_det::TopoFeature::identifyIntersection()
 		else
 		{
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Should not be here" );
-			center_space = true;
+			if(right->fr->side_gap || right->fr->same_gap)
+				center_space = true;
 			leftf = true;
 		}
 
@@ -643,13 +651,16 @@ int inter_det::TopoFeature::identifyIntersection()
 					}
                                 }
                         }
-			center_space = true;
+			//if(left->br->side_gap || left->br->same_gap)
+				center_space = true;
 			rightf = true;
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: rightf set to: " << rightf);
 		}
 		else
 		{
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Should not be here!" );
+			if(left->br->side_gap || left->br->same_gap)
+				center_space = true;
 			rightf = true;
 		}
 		if( leftf && rightf )
@@ -658,7 +669,7 @@ int inter_det::TopoFeature::identifyIntersection()
 	return(logIntersection(right_space, left_space, center_space));
 }
 
-int inter_det::TopoFeature::logIntersection(bool right_space, bool left_space, bool center_space)
+inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(bool right_space, bool left_space, bool center_space)
 {
 	ROS_INFO_STREAM("TopoFeature::identifyIntersection: center: "<< center_space <<
 					"left: " << left_space << "right: " << right_space);
@@ -666,42 +677,108 @@ int inter_det::TopoFeature::logIntersection(bool right_space, bool left_space, b
 	if(left_space && right_space && center_space)
         {
         	ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: FOUR_WAY" );
-                return FOUR;
+                pose_.type = FWI;
         }
         else if(left_space && right_space)
         {
         	ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: T");
-                return T;
+                pose_.type =  TI;
         }
 	else if(left_space)
         {
 		if(center_space)
 		{
-        		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: Left-T" );
-                	return LEFT;
+        		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: Left-I" );
+                	pose_.type = LI;
 		}
 		else
 		{
-			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: Left" );
-			return LEFT;
+			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: Left-T" );
+			pose_.type = LT;
 		}
         }
         else if(right_space)
         {
 		if(center_space)
 		{
-        		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: RIGHT-T" );
-                	return RIGHT;
+        		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: RIGHT-I" );
+                	pose_.type = RI;
 		}
 		else
 		{
-			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: RIGHT" );
-			return RIGHT;
+			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: RIGHT-T" );
+			pose_.type = RT;
 		}
         }
         else
         {
         	ROS_INFO_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: NOTHING" );
-                return UNKNOWN;
+                pose_.type = UNKW;
         }
+	if(pose_.type != UNKW)
+	{
+		if(node_head_ != NULL)
+		{
+			float mp_x, mp_y;
+			if(node_head_->br != NULL)
+			{
+			  if(pose_.type != RI && pose_.type != LI)
+			  {
+			  	mp_x = (node_head_->br->next->info.end_x + 
+			  		node_head_->info.end_x)/2;
+			  	mp_y = (node_head_->br->next->info.end_y + 
+			  		node_head_->info.end_y)/2;
+			  	/*pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f)
+			  			  tf::Vector3(mp_x,mp_y,0.0f));*/
+			  }
+			  else if(pose_.type == LI)
+			  {
+			  	if(node_head_->br->next->br != NULL)
+				{
+				  float temp_x, temp_y;
+				  if(node_head_->br->next->br->next != NULL)
+				  {
+				    temp_x = node_head_->br->next->br->next->info.end_x;
+				    temp_y = node_head_->br->next->br->next->info.end_y;
+				    mp_x = (temp_x+node_head_->br->next->info.end_x)/2;
+				    mp_y = (temp_y+node_head_->br->next->info.end_y)/2;
+				    /*pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f)
+                                                  tf::Vector3(mp_x,mp_y,0.0f));*/
+				  }
+				}
+			  }
+			  else if(pose_.type == RI)
+                          {
+                                if(node_head_->fr->next->fr != NULL)
+                                {
+                                    float temp_x, temp_y;
+                                    temp_x = node_head_->fr->next->info.end_x;
+                                    temp_y = node_head_->br->next->info.end_y;
+                                    mp_x = (temp_x+node_head_->info.end_x)/2;
+                                    mp_y = (temp_y+node_head_->info.end_y)/2;
+				    /*pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f)
+                                                  tf::Vector3(mp_x,mp_y,0.0f));*/
+                                }
+                          }
+			  else
+			  {
+			  	ROS_INFO("Should not come here 5!");
+			  }
+
+			}
+			else
+			{
+				ROS_INFO("Should not come here 1!");
+			}
+		}
+		else
+		{
+			ROS_INFO("Should not come here 2!");
+		}
+	}
+	else
+	{
+		ROS_INFO("Nothing to do no intersection");
+	}
+	return pose_;
 }

@@ -52,41 +52,49 @@ namespace inter_det
 	    bool gap;
 	    int rel;
     };
+    
+    struct intersection
+    {
+    	int type;
+	tf::Transform p;
+    };
 
   class TopoFeature
   {
     enum REL_ENT { RIGHT, LEFT, FRONT, BACK, UNKNOWN, T, FOUR };
     enum REL_POI { BEG=1, END, UNK, NONE, PAR };
 
-    struct intersection
-    {
-	    int type;
-	    tf::Pose p;
-    };
 
     struct node *node_ref_, *node_head_;
 
     std::vector<topo> topo_vec_;
-    std::vector<intersection> pose_;
+    public:
+    struct intersection
+    {
+    	int type;
+	tf::Transform p;
+    };
+    struct intersection pose_;
 
     enum GAP_T{FORW_G,LEFT_G,RIGHT_G};
     enum SIDE{QUAD,MULT};
     enum features{BREAKPOINT,LINE,CURVE,CORNER};
-    enum intersec{TI,RI,RT,LI,LT};
+    enum intersec{TI,RI,RT,LI,LT,FWI,UNKW};
 
     tf::Transform cur_tf_;
+    //typdef struct intersection inter;
 
 	  public:
     void setCurrentTf(tf::Transform t);
     void addTopoFeat(int feat, int pos, float beg_x, float beg_y, float end_x,float  end_y,float time);
     void printTopoFeatures();
-    int identifyIntersection();
+    intersection identifyIntersection();
     void updateFlags(float angle,struct topo seg1,struct topo seg2,int comp_flag,int side_flag);
     void initFlags();
     void clearTopoFeatures(int);
     int buildRelation();
     int checkLineIntersection(struct topo, struct topo);
-    int logIntersection( bool, bool, bool );
+    intersection logIntersection( bool, bool, bool );
     void printRelation();
     int checkParlell(struct topo, struct topo);
     void clearTopoVector() { topo_vec_.clear(); }
