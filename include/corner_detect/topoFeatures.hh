@@ -14,7 +14,7 @@
 #define C_ANG_SIGMA 0.7
 #define A_ANG_SIGMA 0.45
 #define O_ANG_SIGMA 0.45
-#define LIN_SIGMA 0.2
+#define LIN_SIGMA 0.5
 #define GAP_SIGMA 1.5
 #define LIN_GAP_SIGMA 0.3
 

@@ -606,8 +606,8 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 		else
 		{
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Should not be here" );
-			if(right->fr->side_gap || right->fr->same_gap)
-				center_space = true;
+			if(right->fr->same_gap)
+				right_space = true;
 			leftf = true;
 		}
 
@@ -659,8 +659,8 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 		else
 		{
 			ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Should not be here!" );
-			if(left->br->side_gap || left->br->same_gap)
-				center_space = true;
+			if(left->br->same_gap)
+				left_space = true;
 			rightf = true;
 		}
 		if( leftf && rightf )

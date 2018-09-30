@@ -22,7 +22,7 @@
       	boost::bind(&LaserScanListener::scanCallback, this, _1));
     laser_notifier_->setTolerance(ros::Duration(0.01));
     filter_chain_.configure("scan_filter_chain");
-    int_pub_ = nh_.advertise<std_msgs::String>("intersection", 0);
+    int_pub_ = nh_.advertise<corner_detect::MidPoint>("intersection", 0);
   }
 
   void LaserScanListener::scanCallback (const sensor_msgs::LaserScan::ConstPtr scan_in)
@@ -268,7 +268,6 @@ void LaserScanListener::processScan()
   void LaserScanListener::detectLineSegments(pcl::PointCloud<pcl::PointXYZ>::iterator begin, pcl::PointCloud<pcl::PointXYZ>::iterator end)
   {
     int inter;
-    ROS_INFO("LaserScanListener::detectLineSegments: Method entered!");
     ROS_INFO("LaserScanListener::detectLineSegments:HARSHA: Detecting line segments between two break points <%f,%f> and <%f,%f> having <%d> laser scans.",begin->x,begin->y,end->x,end->y,(int)std::distance(begin,end));
 
     ROS_INFO_STREAM( "LaserScanListener::detectLineSegments: Pcl params: " <<
@@ -303,17 +302,17 @@ void LaserScanListener::processScan()
 
     for(ppit_ls = begin+1;ppit_ls<=end-1;ppit_ls++)
     {
-	ROS_INFO_STREAM("LaserScanListener::detectLineSegments: Current point is : " << 
-			    std::distance(pcl_cloud_->begin(), ppit_ls));
+	//ROS_INFO_STREAM("LaserScanListener::detectLineSegments: Current point is : " << 
+			    //std::distance(pcl_cloud_->begin(), ppit_ls));
 	ppit_fi = ppit_ls + 1;
 	ppit_bi = ppit_ls - 1;
 
-	ROS_INFO_STREAM( "ppit_fi: " << std::distance(pcl_cloud_->begin(),ppit_fi) <<
+	/*ROS_INFO_STREAM( "ppit_fi: " << std::distance(pcl_cloud_->begin(),ppit_fi) <<
 			" ("<<ppit_fi->x<<","<<ppit_fi->y<<")"<<
 			 " ppit_bi: " << std::distance(pcl_cloud_->begin(),ppit_bi)<<
 			 "("<<ppit_bi->x<<","<<ppit_bi->y<<")" <<
 			 " ppit_ls: " << std::distance(pcl_cloud_->begin(),ppit_ls) <<
-			 "("<<ppit_ls->x<<","<<ppit_ls->y<<")");
+			 "("<<ppit_ls->x<<","<<ppit_ls->y<<")");*/
     	//ppit_fi = ppit_bi = ppit_ls;
       	flag_fi = flag_bi = 1;
       	real_dist_fi = real_dist_bi = 0.0f;
@@ -413,7 +412,7 @@ void LaserScanListener::processScan()
 
 
       	//STEP 3
-      	if(((std::abs(theta_i) <= theta_min_) || (std::abs(theta_i - M_PI) < theta_min_)) && ((real_dist_fi + real_dist_bi)>=0.2))
+      	if(((std::abs(theta_i) <= theta_min_) || (std::abs(theta_i - M_PI) < theta_min_)) && ((real_dist_fi + real_dist_bi)>=LIN_SIGMA))
       	{
         	ppit_ls->z = ppit_ls->z * 10 + 1;
 		int pos = (std::distance(pcl_cloud_->begin(),ppit_ls-kb) + 
@@ -567,74 +566,114 @@ void LaserScanListener::processScan()
 
   void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection i)
   {
-    std_msgs::String msg;
+    corner_detect::MidPoint msg;
     switch(i.type)
     {
-      case TI: msg.data = "T_INTERSECTION";
+      case TI: msg.intersection_name = "T_INTERSECTION";
                break;
-      case RI: msg.data = "RIGHT_INTERSECTION";
+      case RI: msg.intersection_name = "RIGHT_INTERSECTION";
                break;
-      case RT: msg.data = "RIGHT_TURN";
+      case RT: msg.intersection_name = "RIGHT_TURN";
                break;
-      case LI: msg.data = "LEFT_INTERSECTION";
+      case LI: msg.intersection_name = "LEFT_INTERSECTION";
                break;
-      case LT: msg.data = "LEFT_TURN";
+      case LT: msg.intersection_name = "LEFT_TURN";
                break;
-      case UNKW: msg.data = "NO_INT";
+      case UNKW: msg.intersection_name = "NO_INT";
                  break;
     }
 
     tf::Transform odom_tf;
     tf::Transform ct_pose, pt_pose;
-    if(i.type != UNKW)
-    {
-	ROS_INFO_STREAM("LaserScanListener::publishIntersection: Detected midpoint: " <<
+    tf::Pose pp;
+    geometry_msgs::Pose p;
+    float cd;
+    ROS_INFO_STREAM("LaserScanListener::publishIntersection: Detected midpoint: " <<
 				i.p.getOrigin().x() << "," << i.p.getOrigin().y());
-	try
-        {
-        	cur_tf_ = buffer_.lookupTransform(odom_, base_link_, ros::Time(0));
-        	odom_tf = (tf::Transform(tf::Quaternion(cur_tf_.transform.rotation.x,
-        				cur_tf_.transform.rotation.y,
-        				cur_tf_.transform.rotation.z,
-        				cur_tf_.transform.rotation.w),
-        			tf::Vector3(cur_tf_.transform.translation.x,
-        				cur_tf_.transform.translation.y,
-        				cur_tf_.transform.translation.z)));
-		ct_pose = odom_tf*i.p;
-		if(prev_mp_.set)
-		{
-			//if(i.type == prev_mp_.type)
-			//{
-				ROS_INFO_STREAM("FINAL: Current Pose: "<<ct_pose.getOrigin().x() <<","
+    try
+    {
+      cur_tf_ = buffer_.lookupTransform(odom_, base_link_, ros::Time(0));
+      odom_tf = (tf::Transform(tf::Quaternion(cur_tf_.transform.rotation.x,
+      					      cur_tf_.transform.rotation.y,
+					      cur_tf_.transform.rotation.z,
+					      cur_tf_.transform.rotation.w),
+			       tf::Vector3(cur_tf_.transform.translation.x,
+			       		   cur_tf_.transform.translation.y,
+					   cur_tf_.transform.translation.z)));
+      if(i.type != UNKW)
+      {
+    	ct_pose = odom_tf*i.p;
+    	tf::poseTFToMsg(ct_pose,p);
+    	msg.pose = p;
+    	msg.header.stamp = ros::Time::now();
+	msg.child_frame_id = odom_;
+	if(prev_mp_.set)
+	{
+		//if(i.type == prev_mp_.type)
+		//{
+		ROS_INFO_STREAM("FINAL: Current Pose: "<<ct_pose.getOrigin().x() <<","
 							<<ct_pose.getOrigin().y()<<","
 							<<ct_pose.getOrigin().z());
-				ROS_INFO_STREAM("FINAL: Previou Pose: "<<prev_mp_.t.getOrigin().x()<<","
-							<<ct_pose.getOrigin().y()<<","
-							<<prev_mp_.t.getOrigin().z());
+		ROS_INFO_STREAM("FINAL: Previou Pose: "<<prev_mp_.p.position.x<<","
+							<<prev_mp_.p.position.y<<","
+							<<prev_mp_.p.position.z);
 			//}
+		cd = computeDistance(p,prev_mp_.p);
+		if(cd < 0.2)
+		{
+			msg.reached = "SAME";
 		}
-		else 
+		else
 		{
 			ROS_INFO_STREAM("FINAL: New pose: "<<ct_pose.getOrigin().x() << ","
+				                                <<ct_pose.getOrigin().y() <<","
+								<<ct_pose.getOrigin().z());
+			prev_mp_.p = p;
+		}
+	}
+	else 
+	{
+		ROS_INFO_STREAM("FINAL: New pose: "<<ct_pose.getOrigin().x() << ","
 							<<ct_pose.getOrigin().y() <<","
 							<<ct_pose.getOrigin().z());
-			prev_mp_.set = true;
-			prev_mp_.t = ct_pose;
-			prev_mp_.type = i.type;
+		prev_mp_.set = true;
+		prev_mp_.p = p;
+		prev_mp_.type = i.type;
+		msg.reached = "NEW";
+	}
+      }
+      else
+      {
+      	if(prev_mp_.set == true)
+	{
+		geometry_msgs::Pose op;
+		op.position.x = odom_tf.getOrigin().x();
+		op.position.y = odom_tf.getOrigin().y();
+		op.position.z = odom_tf.getOrigin().z();
+		float cd = computeDistance(op,prev_mp_.p);
+		if(cd < 0.2)
+		{
+			msg.reached = "REACHED";
+			prev_mp_.set = false;
 		}
-        }
-	
-        catch(tf::TransformException &ex)
-        {
-        	ROS_ERROR("LaserScanListener::detectLineSegments: Clearing topo features : %s",ex.what());
-        }
+	}
+      }
     }
-    else
+	
+    catch(tf::TransformException &ex)
     {
-    	prev_mp_.set = false;
-	prev_mp_.type = UNKW;
+    	ROS_ERROR("LaserScanListener::detectLineSegments: Clearing topo features : %s",ex.what());
     }
     int_pub_.publish(msg);
+  }
+
+  float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)
+  {
+  	float dist;
+	float dist_x = a.position.x - b.position.x;
+	float dist_y = a.position.y - b.position.y;
+	dist = sqrt(pow(dist_x,2) + pow(dist_y,2));
+	return dist;
   }
 
   float LaserScanListener::computeEuclidDist(pcl::PointCloud<pcl::PointXYZ>::iterator pcl1,pcl::PointCloud<pcl::PointXYZ>::iterator pcl2)
@@ -646,7 +685,7 @@ void LaserScanListener::processScan()
 
     dist = pow(dist_x,2) + pow(dist_y,2);
     dist = sqrt(dist);
-    ROS_INFO_STREAM( "LaserScanListener::computeEuclidDist: Euclidean distance between <" << pcl1->x << "," << pcl1->y << "> and <" << pcl2->x << "," << pcl2->y << ">:[" << dist << "]" );
+    //ROS_INFO_STREAM( "LaserScanListener::computeEuclidDist: Euclidean distance between <" << pcl1->x << "," << pcl1->y << "> and <" << pcl2->x << "," << pcl2->y << ">:[" << dist << "]" );
     return dist;
   }
 

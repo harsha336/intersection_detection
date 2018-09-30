@@ -16,6 +16,7 @@
 #include "std_msgs/String.h"
 #include <corner_detect/topoFeatures.hh>
 #include <boost/thread/mutex.hpp>
+#include <corner_detect/MidPoint.h>
 
 class LaserScanListener{
 
@@ -25,7 +26,7 @@ class LaserScanListener{
   {
   	int type;
 	bool set;
-	tf::Transform t;
+	geometry_msgs::Pose p;
   } prev_mp_;
 
   ros::NodeHandle nh_private_, nh_;
@@ -82,6 +83,7 @@ class LaserScanListener{
   bool scan_recv_;
 
   ros::Time last_proc_time_;
+  enum DIST{NEW,SAME,REACHED};
   
 
   public: LaserScanListener();
@@ -95,6 +97,7 @@ class LaserScanListener{
   protected: bool convertScanToPointCloud(sensor_msgs::LaserScan& scan);
   protected: float constrainAngle(float);
   protected: void publishIntersection(inter_det::TopoFeature::intersection);
+  protected: float computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b);
   
   public: void processScan();
   protected: bool checkLastProcessTime()
