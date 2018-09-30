@@ -159,10 +159,10 @@
       {
         dmax = (prev_range*(sin(delta_phi)/sin(lambda-delta_phi)))+3*sigma_r;
         euc_dist = computeEuclidDist(pcl_iter, pcl_iter-1);
+	ROS_INFO_STREAM("LaserScanListener::detectBreakPoint: Euclidean distance: " <<
+                                euc_dist << "dmax: " << dmax );
         if(euc_dist > dmax)
         {
-	  ROS_INFO_STREAM( "LaserScanListener::detectBreakPoint: Euclidean distance: " <<
-	  			euc_dist << "dmax: " << dmax );
 	  pcl_iter->z = 1;
 	  (pcl_iter-1)->z = 1;
           //if ( !std::isinf(start->x) )
@@ -170,7 +170,7 @@
 	    ROS_INFO_STREAM( "LaserScanListener::detectBreakPoint: Angle reached here: " << angle); 
 	    ROS_INFO_STREAM( "LaserScanListener::detectBreakPoint: Points got from laser scan :<" <<scan.ranges[i]*cos(angle) << "," << scan.ranges[i]*sin(angle) << ">");
 	    ROS_INFO_STREAM( "LaserScanListener::detectBreakPoint: Starting from : " << std::distance(pcl_cloud_->begin(),start) << " to :" << std::distance(pcl_cloud_->begin(),pcl_iter-1));
-	    detectLineSegments(start-1, pcl_iter-1);
+	    detectLineSegments(start, pcl_iter-1);
 	    //detectCurveAndCorner(start, pcl_iter-1);
 	    
 	  //}
@@ -588,6 +588,8 @@ void LaserScanListener::processScan()
     tf::Transform ct_pose, pt_pose;
     if(i.type != UNKW)
     {
+	ROS_INFO_STREAM("LaserScanListener::publishIntersection: Detected midpoint: " <<
+				i.p.getOrigin().x() << "," << i.p.getOrigin().y());
 	try
         {
         	cur_tf_ = buffer_.lookupTransform(odom_, base_link_, ros::Time(0));
