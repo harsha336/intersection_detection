@@ -274,11 +274,11 @@ void LaserScanListener::processScan()
     		      "begin: " << std::distance(pcl_cloud_->begin(),begin) <<
 		      "end: " << std::distance(pcl_cloud_->begin(),end));
 
-    /*if(std::distance(begin,end) < 10)
+    if(std::distance(begin,end) < 5)
     {
     	ROS_INFO_STREAM( "LaserScanListener::detectLineSegments: The number of scans [" << std::distance(begin,end) << "] is less than the line threshold." );
 	return;
-    }*/
+    }
 
     pcl::PointCloud<pcl::PointXYZ>::iterator ppit_ls,ppit_fi,ppit_bi;
 
@@ -418,7 +418,8 @@ void LaserScanListener::processScan()
 		int pos = (std::distance(pcl_cloud_->begin(),ppit_ls-kb) + 
 				std::distance(pcl_cloud_->begin(),ppit_ls+kf))/2;
 		//ROS_INFO("LaserScanListener::detectLineSegments: Line segment detected <%f>",ppit_ls->z);
-		topo_feat_.addTopoFeat(LINE, pos, 
+		if(std::distance(ppit_bi,ppit_fi) > 5)
+			topo_feat_.addTopoFeat(LINE, pos, 
 				ppit_bi->x, ppit_bi->y, 
 				ppit_fi->x,ppit_fi->y, 
 				ros::Time::now().toSec());
