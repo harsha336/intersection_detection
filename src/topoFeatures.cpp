@@ -1,5 +1,5 @@
 #include <corner_detect/topoFeatures.hh>
-using namespace ros;
+//using namespace ros;
 void inter_det::TopoFeature::addTopoFeat(int feat, int pos, float beg_x, float beg_y, float end_x,float  end_y,float time)
 {
   ROS_INFO("TopoFeature::addTopoFeat: Adding topo feature: <%d,%d,(%f,%f),(%f,%f),%f>",feat,pos,beg_x,beg_y,end_x,end_y,time);
@@ -728,8 +728,8 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 			  		node_head_->info.end_x)/2;
 			  	mp_y = (node_head_->br->next->info.end_y + 
 			  		node_head_->info.end_y)/2;
-			  	/*pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f)
-			  			  tf::Vector3(mp_x,mp_y,0.0f));*/
+			  	pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
+			  			  tf::Vector3(mp_x,mp_y,0.0f));
 			  }
 			  else if(pose_.type == LI)
 			  {
@@ -742,8 +742,8 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 				    temp_y = node_head_->br->next->br->next->info.end_y;
 				    mp_x = (temp_x+node_head_->br->next->info.end_x)/2;
 				    mp_y = (temp_y+node_head_->br->next->info.end_y)/2;
-				    /*pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f)
-                                                  tf::Vector3(mp_x,mp_y,0.0f));*/
+				    pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
+                                                  tf::Vector3(mp_x,mp_y,0.0f));
 				  }
 				}
 			  }
@@ -756,8 +756,8 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
                                     temp_y = node_head_->br->next->info.end_y;
                                     mp_x = (temp_x+node_head_->info.end_x)/2;
                                     mp_y = (temp_y+node_head_->info.end_y)/2;
-				    /*pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f)
-                                                  tf::Vector3(mp_x,mp_y,0.0f));*/
+				    pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
+                                                  tf::Vector3(mp_x,mp_y,0.0f));
                                 }
                           }
 			  else
