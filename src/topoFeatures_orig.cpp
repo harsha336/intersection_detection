@@ -554,48 +554,7 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 					left->br->rel_to );
 
 
-	if(right->fr != NULL && left->br != NULL)
-	{
-		// Easy comparison for T-Intersection
-		if(right->fr->next != NULL && left->br->next != NULL &&
-				right->fr->next == left->br->next == NULL)
-		{
-			//Perform check for T-Intersection
-			if(std::abs(right->fr->angle - PER_ANG) < ANG_SIGM &&
-					std::abs(left->br->angle - PER_ANG) < ANG_SIGMA &&)
-				logIntersection(right->fr->same_gap, left->br->same_gap, false);
-		}
-		// Bit of complicated comparison for other intersection
-		else
-		{
-			if(std::abs(right->info.x) <  LIN_SIGMA &&
-					std::abs(left->info.beg_x) < LIN_SIGMA)
-			{
-				float left_mag = computeLength(left->info);
-				float right_mag = computeLength(right->info);
-				if((right_mag - left_mag) > LIN_SIGMA)
-					if(left->br->same_gap && 
-					   (right->fr->side_gap || right->fr->same_gap))
-						logIntersection(false, true, true);
-					else if(left->br->same_gap &&
-						(!right->fr->side_gap && !right->fr->same_gap))
-						logIntersection(false, true, false);
-				else if((right_mag - left_mag) < LIN_SIGMA)
-					if(right->fr->same_gap &&
-					   (left->br->side_gap || left->br->same_gap))
-						logIntersection(true, false, true);
-					else if(right->fr->same_gap &&
-						(!left->fr->same_gap && !left->br->side_gap))
-						logIntersection(true, false, false);
-				else if(std::abs(right_msg - left_mag) < LIN_SIGMA &&
-						right->fr->same_gap &&
-						left->br->same_gap)
-					logIntersection(true, true, true);
-			}
-		}
-	}
-
-	  /*while ( right != left )
+	while ( right != left )
 	{
 		ROS_INFO_STREAM( "TopoFeature::identifyIntersection: Inside while loop!" );
 
@@ -706,8 +665,8 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 		}
 		if( leftf && rightf )
 			return(logIntersection(right_space, left_space, center_space));
-	}*/
-	//return(logIntersection(right_space, left_space, center_space));
+	}
+	return(logIntersection(right_space, left_space, center_space));
 }
 
 inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(bool right_space, bool left_space, bool center_space)
