@@ -176,6 +176,7 @@ int inter_det::TopoFeature::checkLineIntersection(struct topo l1, struct topo l2
 
 int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 {
+	ROS_INFO_STREAM("TopoFeature::checkParlell: Method entered!");
 	float para_x, para_y, begx, begy;
 	bool rev;
 	bool flag = true;
@@ -183,7 +184,7 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 	para_x = l1.end_x - l1.beg_x;
 	para_y = l1.end_y - l1.beg_y;
 	begx = l1.beg_x; begy = l1.beg_y;
-	(begx < 0)? rev = false : rev = true;
+	(begx > l2.beg_x)? rev = false : rev = true;
 	while( flag && std::abs(begx) < 10 && std::abs(begy) < 10)
 	{
 		ROS_INFO_STREAM( "TopoFeature::checkParlell: In while loop!" << begx
@@ -191,8 +192,8 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 				 << " paray: " << para_y );
 		begx = begx + para_x*t;
 		begy = begy + para_y*t;
-		if(std::abs(begx - l2.beg_x) < LIN_SIGMA && 
-		   std::abs(begy - l2.beg_y) < LIN_SIGMA)
+		if(std::abs(begx - l2.beg_x) < PAR_LIN_SIGMA && 
+		   std::abs(begy - l2.beg_y) < PAR_LIN_SIGMA)
 		{
 			ROS_INFO_STREAM( "TopoFeature::checkParlell: They meet hence front" );
 			return FRONT;
@@ -371,7 +372,8 @@ int inter_det::TopoFeature::buildRelation()
 		         std::abs(fr->angle) < C_ANG_SIGMA )
 		{
 			ROS_INFO_STREAM( "TopoFeature::buildRelation: Found a parlell angle!" );
-			if( checkParlell(topo_vec_[cur], topo_vec_[next]) == FRONT )
+			int side_check = checkParlell(topo_vec_[cur], topo_vec_[next]);
+			if( side_check == FRONT )
 			{
 				fr->rel_to = FRONT;
 				br->rel_to = BACK;
@@ -384,7 +386,7 @@ int inter_det::TopoFeature::buildRelation()
 					br->same_gap = fr->same_gap = true;
 
 			}
-			else if( checkParlell(topo_vec_[cur], topo_vec_[next]) == LEFT )
+			else if( side_check == LEFT )
 			{
 				fr->rel_to = LEFT;
                                 br->rel_to = RIGHT;
@@ -557,40 +559,59 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 	if(right->fr != NULL && left->br != NULL)
 	{
 		// Easy comparison for T-Intersection
-		if(right->fr->next != NULL && left->br->next != NULL &&
-				right->fr->next == left->br->next == NULL)
+		if(right->fr->next == left->br->next)
 		{
+			ROS_INFO_STREAM("TopoFeature::identifyIntersection: Checking T-Intersection");
 			//Perform check for T-Intersection
-			if(std::abs(right->fr->angle - PER_ANG) < ANG_SIGM &&
-					std::abs(left->br->angle - PER_ANG) < ANG_SIGMA &&)
-				logIntersection(right->fr->same_gap, left->br->same_gap, false);
+			if(std::abs(right->fr->angle - PER_ANG) < ANG_SIGMA &&
+					std::abs(left->br->angle - PER_ANG) < ANG_SIGMA)
+				return(logIntersection(right->fr->same_gap, left->br->same_gap, false));
 		}
 		// Bit of complicated comparison for other intersection
 		else
 		{
-			if(std::abs(right->info.x) <  LIN_SIGMA &&
-					std::abs(left->info.beg_x) < LIN_SIGMA)
+			ROS_INFO_STREAM("TopoFeature::identifyIntersection: Checking other intersections");
+			if(std::abs(right->info.beg_x) <  LIN_SIGMA &&
+					std::abs(left->info.end_x) < LIN_SIGMA)
 			{
 				float left_mag = computeLength(left->info);
 				float right_mag = computeLength(right->info);
+				ROS_INFO_STREAM("TopoFeature::identifyIntersection: Left Mag: "<< left_mag << " Right Mag: " << right_mag);
 				if((right_mag - left_mag) > LIN_SIGMA)
+				{
+					ROS_INFO_STREAM("TopoFeature::identifyIntersection: Must be something to Left");
 					if(left->br->same_gap && 
 					   (right->fr->side_gap || right->fr->same_gap))
-						logIntersection(false, true, true);
+					{
+						return(logIntersection(false, true, true));
+					}
 					else if(left->br->same_gap &&
 						(!right->fr->side_gap && !right->fr->same_gap))
-						logIntersection(false, true, false);
+					{
+						return(logIntersection(false, true, false));
+					}
+				}
 				else if((right_mag - left_mag) < LIN_SIGMA)
+				{
+					ROS_INFO_STREAM("TopoFeature::identifyIntersection: Must be something to left");
 					if(right->fr->same_gap &&
 					   (left->br->side_gap || left->br->same_gap))
-						logIntersection(true, false, true);
+					{
+						return(logIntersection(true, false, true));
+					}
 					else if(right->fr->same_gap &&
-						(!left->fr->same_gap && !left->br->side_gap))
-						logIntersection(true, false, false);
-				else if(std::abs(right_msg - left_mag) < LIN_SIGMA &&
+						(!left->br->same_gap && !left->br->side_gap))
+					{
+						return(logIntersection(true, false, false));
+					}
+				}
+				else if(std::abs(right_mag - left_mag) < LIN_SIGMA &&
 						right->fr->same_gap &&
 						left->br->same_gap)
-					logIntersection(true, true, true);
+				{
+					ROS_INFO_STREAM("TopoFeature::identifyIntersection: Must be on both sides!");
+					return(logIntersection(true, true, true));
+				}
 			}
 		}
 	}
@@ -821,5 +842,6 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 	{
 		ROS_INFO("Nothing to do no intersection");
 	}
+	ROS_INFO_STREAM(" TopoFeature::identifyIntersection: Type: " << pose_.type);
 	return pose_;
 }

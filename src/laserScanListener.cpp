@@ -243,6 +243,7 @@ void LaserScanListener::processScan()
 			{
 				topo_feat_.printRelation();
 				inter_pose = topo_feat_.identifyIntersection();
+				ROS_INFO_STREAM("LaserScanListener::processScan: Type here: " << inter_pose.type);
 				publishIntersection(inter_pose);
 			}
 			topo_feat_.clearTopoFeatures(std::abs(rel_ret));
@@ -583,6 +584,9 @@ void LaserScanListener::processScan()
       case UNKW: msg.intersection_name = "NO_INT";
                  break;
     }
+
+    ROS_INFO_STREAM("LaserScanListener::publishIntersection: type: " << i.type <<
+    			" Message: " << msg.intersection_name);
 
     tf::Transform odom_tf;
     tf::Transform ct_pose, pt_pose;

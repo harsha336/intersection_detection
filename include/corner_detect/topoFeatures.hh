@@ -15,6 +15,7 @@
 #define A_ANG_SIGMA 0.45
 #define O_ANG_SIGMA 0.45
 #define LIN_SIGMA 0.5
+#define PAR_LIN_SIGMA 0.9
 #define GAP_SIGMA 1.5
 #define LIN_GAP_SIGMA 0.3
 
@@ -101,6 +102,10 @@ namespace inter_det
     float dist(float x1, float y1, float x2, float y2)
     {
 	    return(sqrt(pow((x2 - x1),2) + pow((y2 - y1),2)));
+    }
+    float computeLength(struct topo t)
+    {
+    	return(sqrt(pow((t.beg_x - t.end_x),2) + pow((t.beg_y - t.end_y),2)));
     }
   };
 
