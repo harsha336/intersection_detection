@@ -581,6 +581,8 @@ void LaserScanListener::processScan()
                break;
       case LT: msg.intersection_name = "LEFT_TURN";
                break;
+      case FWI: msg.intersection_name = "FOUR_WAY_INTERSECTION";
+	        break;
       case UNKW: msg.intersection_name = "NO_INT";
                  break;
     }

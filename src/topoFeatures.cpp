@@ -583,37 +583,45 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 					if(left->br->same_gap && 
 					   (right->fr->side_gap || right->fr->same_gap))
 					{
-						return(logIntersection(false, true, true));
+						left_space = true;
+						center_space = true;
+						//return(logIntersection(false, true, true));
 					}
 					else if(left->br->same_gap &&
 						(!right->fr->side_gap && !right->fr->same_gap))
 					{
-						return(logIntersection(false, true, false));
+						left_space = true;
+						//return(logIntersection(false, true, false));
 					}
 				}
-				else if((right_mag - left_mag) < LIN_SIGMA)
+				else if((right_mag - left_mag) < -LIN_SIGMA)
 				{
-					ROS_INFO_STREAM("TopoFeature::identifyIntersection: Must be something to left");
+					ROS_INFO_STREAM("TopoFeature::identifyIntersection: Must be something to Right");
 					if(right->fr->same_gap &&
 					   (left->br->side_gap || left->br->same_gap))
 					{
-						return(logIntersection(true, false, true));
+						right_space = true;
+						center_space = true;
+						//return(logIntersection(true, false, true));
 					}
 					else if(right->fr->same_gap &&
 						(!left->br->same_gap && !left->br->side_gap))
 					{
-						return(logIntersection(true, false, false));
+						right_space = true;
+						//return(logIntersection(true, false, false));
 					}
 				}
 				else if(std::abs(right_mag - left_mag) < LIN_SIGMA &&
-						right->fr->same_gap &&
-						left->br->same_gap)
+						(right->fr->same_gap || right->fr->side_gap) &&
+						(left->br->same_gap || left->br->side_gap))
 				{
 					ROS_INFO_STREAM("TopoFeature::identifyIntersection: Must be on both sides!");
-					return(logIntersection(true, true, true));
+					left_space = center_space = right_space = true;
+					//return(logIntersection(true, true, true));
 				}
 			}
 		}
+		return(logIntersection(right_space,left_space,center_space));
 	}
 
 	  /*while ( right != left )
