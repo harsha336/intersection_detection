@@ -569,34 +569,14 @@ void LaserScanListener::processScan()
   void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection i)
   {
     corner_detect::MidPoint msg;
-    switch(i.type)
-    {
-      case TI: msg.intersection_name = "T_INTERSECTION";
-               break;
-      case RI: msg.intersection_name = "RIGHT_INTERSECTION";
-               break;
-      case RT: msg.intersection_name = "RIGHT_TURN";
-               break;
-      case LI: msg.intersection_name = "LEFT_INTERSECTION";
-               break;
-      case LT: msg.intersection_name = "LEFT_TURN";
-               break;
-      case FWI: msg.intersection_name = "FOUR_WAY_INTERSECTION";
-	        break;
-      case UNKW: msg.intersection_name = "NO_INT";
-                 break;
-    }
-
-    ROS_INFO_STREAM("LaserScanListener::publishIntersection: type: " << i.type <<
-    			" Message: " << msg.intersection_name);
-
     tf::Transform odom_tf;
     tf::Transform ct_pose, pt_pose;
     tf::Pose pp;
     geometry_msgs::Pose p;
     float cd;
     ROS_INFO_STREAM("LaserScanListener::publishIntersection: Detected midpoint: " <<
-				i.p.getOrigin().x() << "," << i.p.getOrigin().y());
+    				i.type << i.p.getOrigin().x() << "," <<
+				i.p.getOrigin().y());
     try
     {
       cur_tf_ = buffer_.lookupTransform(odom_, base_link_, ros::Time(0));
@@ -611,59 +591,78 @@ void LaserScanListener::processScan()
       {
     	ct_pose = odom_tf*i.p;
     	tf::poseTFToMsg(ct_pose,p);
-    	msg.pose = p;
+    	//msg.pose = p;
     	msg.header.stamp = ros::Time::now();
 	msg.child_frame_id = odom_;
-	if(prev_mp_.set)
+	if(!is_.empty())
 	{
-		//if(i.type == prev_mp_.type)
-		//{
+		
 		ROS_INFO_STREAM("FINAL: Current Pose: "<<ct_pose.getOrigin().x() <<","
 							<<ct_pose.getOrigin().y()<<","
 							<<ct_pose.getOrigin().z());
-		ROS_INFO_STREAM("FINAL: Previou Pose: "<<prev_mp_.p.position.x<<","
-							<<prev_mp_.p.position.y<<","
-							<<prev_mp_.p.position.z);
-			//}
-		cd = computeDistance(p,prev_mp_.p);
-		if(cd < 0.2)
+		std::list<std::pair<int,geometry_msgs::Pose>>::iterator it;
+		it = is_.begin();
+		bool found = false;
+		std::pair<int,geometry_msgs::Pose> cur;
+		while(it != is_.end())
 		{
-			msg.reached = "SAME";
+			cur = *it;
+			cd = computeDistance(p,cur.second);
+			ROS_INFO_STREAM("FINAL: Distance between pose-intersection" << cd);
+			if(cd < 0.2)
+			{
+				msg.reached = "SAME";
+				msg.pose = p;
+				msg.intersection_name = convertEnumToString(i.type);
+				found = true;
+				break;
+				ROS_INFO_STREAM("FINAL: =======SAME=======");
+			}
+			it++;
 		}
-		else
+		if(!found)
 		{
 			ROS_INFO_STREAM("FINAL: New pose: "<<ct_pose.getOrigin().x() << ","
-				                                <<ct_pose.getOrigin().y() <<","
-								<<ct_pose.getOrigin().z());
-			prev_mp_.p = p;
+						<<ct_pose.getOrigin().y() <<","
+						<<ct_pose.getOrigin().z());
+			is_.emplace_back(std::pair<int,geometry_msgs::Pose>(i.type,p));
+			msg.reached = "NEW";
+			msg.pose = p;
+			msg.intersection_name = convertEnumToString(i.type);
+			ROS_INFO_STREAM("FINAL: ========NEW=======");
 		}
 	}
 	else 
 	{
 		ROS_INFO_STREAM("FINAL: New pose: "<<ct_pose.getOrigin().x() << ","
-							<<ct_pose.getOrigin().y() <<","
-							<<ct_pose.getOrigin().z());
-		prev_mp_.set = true;
-		prev_mp_.p = p;
-		prev_mp_.type = i.type;
+						   <<ct_pose.getOrigin().y() <<","
+						   <<ct_pose.getOrigin().z());
 		msg.reached = "NEW";
+		msg.pose = p;
+		msg.intersection_name = convertEnumToString(i.type);
+		is_.emplace_back(std::pair<int,geometry_msgs::Pose>(i.type,p));
+		ROS_INFO_STREAM("FINAL: ========NEW=======");
 	}
       }
-      else
+      if(!is_.empty())
       {
-      	if(prev_mp_.set == true)
-	{
-		geometry_msgs::Pose op;
+      		geometry_msgs::Pose op;
 		op.position.x = odom_tf.getOrigin().x();
 		op.position.y = odom_tf.getOrigin().y();
 		op.position.z = odom_tf.getOrigin().z();
-		float cd = computeDistance(op,prev_mp_.p);
+		std::pair<int,geometry_msgs::Pose> cur;
+		cur = *is_.begin();
+		float cd = computeDistance(op,cur.second);
+		ROS_INFO_STREAM("FINAL: No INT but distance between pose-intersection"<<cd);
 		if(cd < 0.2)
 		{
 			msg.reached = "REACHED";
-			prev_mp_.set = false;
+			msg.intersection_name = convertEnumToString(cur.first);
+			msg.pose = cur.second;
+			ROS_INFO_STREAM("FINAL: =====REACHED=====");
+			is_.pop_front();
 		}
-	}
+
       }
     }
 	

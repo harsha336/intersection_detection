@@ -22,12 +22,6 @@ class LaserScanListener{
 
 
 //public:
-  struct intersection
-  {
-  	int type;
-	bool set;
-	geometry_msgs::Pose p;
-  } prev_mp_;
 
   ros::NodeHandle nh_private_, nh_;
 
@@ -73,6 +67,8 @@ class LaserScanListener{
 
   boost::mutex scan_mutex_;
 
+  std::list<std::pair<int,geometry_msgs::Pose>> is_;
+
   enum features{BREAKPOINT,LINE,CURVE,CORNER};
   enum angle_range{UNKNOWN,acute,obtuse,per,par};
   enum intersec{TI,RI,RT,LI,LT,FWI,UNKW};
@@ -105,6 +101,28 @@ class LaserScanListener{
 			if((ros::Time::now() - last_proc_time_).toSec() < 2)
 				return true;
 			return false;
+		}
+  protected: std::string convertEnumToString(int i)
+  		{
+			std::string intersection_name;
+			switch(i)
+			{
+				case TI: intersection_name = "T_INTERSECTION";
+					 break;
+				case RI: intersection_name = "RIGHT_INTERSECTION";
+					 break;
+				case RT: intersection_name = "RIGHT_TURN";
+					 break;
+				case LI: intersection_name = "LEFT_INTERSECTION";
+					 break;
+				case LT: intersection_name = "LEFT_TURN";
+					 break;
+				case FWI: intersection_name = "FOUR_WAY_INTERSECTION";
+					  break;
+				case UNKW: intersection_name = "NO_INT";
+					   break;
+			}
+			return intersection_name;
 		}
 };
 
