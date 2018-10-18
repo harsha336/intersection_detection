@@ -608,15 +608,15 @@ void LaserScanListener::processScan()
 		{
 			cur = *it;
 			cd = computeDistance(p,cur.second);
-			ROS_INFO_STREAM("FINAL: Distance between pose-intersection" << cd);
-			if(cd < 0.2)
+			ROS_INFO_STREAM("FINAL: Distance inside while loop between pose-intersection" << cd);
+			if(cd < 2)
 			{
 				msg.reached = "SAME";
 				msg.pose = p;
 				msg.intersection_name = convertEnumToString(i.type);
 				found = true;
-				break;
 				ROS_INFO_STREAM("FINAL: =======SAME=======");
+				break;
 			}
 			it++;
 		}
@@ -646,24 +646,43 @@ void LaserScanListener::processScan()
       }
       if(!is_.empty())
       {
+	std::list<std::pair<int,geometry_msgs::Pose>>::iterator it;
+	for(it = is_.begin(); it != is_.end(); it++)
+	{
       		geometry_msgs::Pose op;
 		op.position.x = odom_tf.getOrigin().x();
 		op.position.y = odom_tf.getOrigin().y();
 		op.position.z = odom_tf.getOrigin().z();
 		std::pair<int,geometry_msgs::Pose> cur;
-		cur = *is_.begin();
+		cur = *it;
 		float cd = computeDistance(op,cur.second);
 		ROS_INFO_STREAM("FINAL: No INT but distance between pose-intersection"<<cd);
-		if(cd < 0.2)
+		if(cd < 2)
 		{
 			msg.reached = "REACHED";
 			msg.intersection_name = convertEnumToString(cur.first);
 			msg.pose = cur.second;
 			ROS_INFO_STREAM("FINAL: =====REACHED=====");
-			is_.pop_front();
+			is_.erase(it);
+			break;
 		}
-
+	}
       }
+      std::list<std::pair<int,geometry_msgs::Pose>>::iterator it;
+      for(it = is_.begin(); it != is_.end(); it++)
+      {
+        std::pair<int,geometry_msgs::Pose> cur;
+	cur = *it;
+      	ROS_INFO_STREAM("FINAL: [" << std::distance(is_.begin(),it) << "]:"
+				<< cur.second.position.x << ","
+				<< cur.second.position.y << ","
+				<< cur.second.position.z);
+      }
+      ROS_INFO_STREAM("================================");
+      ROS_INFO_STREAM("Odom tf is: " << odom_tf.getOrigin().x() << ","
+      				     << odom_tf.getOrigin().y() << ","
+				     << odom_tf.getOrigin().z());
+      
     }
 	
     catch(tf::TransformException &ex)
@@ -671,6 +690,8 @@ void LaserScanListener::processScan()
     	ROS_ERROR("LaserScanListener::detectLineSegments: Clearing topo features : %s",ex.what());
     }
     int_pub_.publish(msg);
+
+    
   }
 
   float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)
