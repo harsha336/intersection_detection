@@ -657,7 +657,7 @@ void LaserScanListener::processScan()
 		cur = *it;
 		float cd = computeDistance(op,cur.second);
 		ROS_INFO_STREAM("FINAL: No INT but distance between pose-intersection"<<cd);
-		if(cd < 2)
+		if(cd < 0.2)
 		{
 			msg.reached = "REACHED";
 			msg.intersection_name = convertEnumToString(cur.first);
