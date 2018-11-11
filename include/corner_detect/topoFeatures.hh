@@ -62,7 +62,8 @@ namespace inter_det
 
   class TopoFeature
   {
-    enum REL_ENT { RIGHT, LEFT, FRONT, BACK, UNKNOWN, T, FOUR };
+    enum REL_ENT { RIGHT, LEFT, FRONT, BACK, UNKNOWN, T, FOUR, L1INL2, L2INL1, 
+   			L1ENDINL2, L2BEGINL1 };
     enum REL_POI { BEG=1, END, UNK, NONE, PAR };
 
 
@@ -98,6 +99,7 @@ namespace inter_det
     intersection logIntersection( bool, bool, bool );
     void printRelation();
     int checkParlell(struct topo, struct topo);
+    bool checkEncaps(float beg_x, float beg_y, float end_x, float end_y, float x, float y);
     void clearTopoVector() { topo_vec_.clear(); }
     float dist(float x1, float y1, float x2, float y2)
     {

@@ -196,30 +196,10 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 		   std::abs(begy - l2.beg_y) < PAR_LIN_SIGMA)
 		{
 			ROS_INFO_STREAM( "TopoFeature::checkParlell: They meet hence front" );
-			bool l1beginl2, l1endinl2, l2beginl1, l2endinl1;
-			l1beginl2 = checkEncaps(l2.beg_x, l2.beg_y, l2.end_x, l2.end_y, l1.beg_x, l1.beg_y);
-			l1endinl2 = checkEncaps(l2.beg_x, l2.beg_y, l2.end_x, l2.end_y, l1.end_x, l1.end_y);
-			l2beginl1 = checkEncaps(l1.beg_x, l1.beg_y, l1.end_x, l1.end_y, l2.beg_x, l2.beg_y);
-			l2endinl1 = checkEncaps(l1.beg_x, l1.beg_y, l1.end_x, l1.end_y, l2.end_x, l2.end_y);
-			if( l1beginl2 && l1endinl2 )
-				return L1INL2;
-			else if( l2beginl1 && l2endinl1 )
-				return L2INL1;
-			else if( l1endinl2 )
-				return L1ENDINL2;
-			else if( l2beginl1 )
-				return L2BEGINL1;
-			else
-			{
-				ROS_INFO_STREAM( "TopoFeature::checkParlell: No relation " << l1beginl2 << "," <<
-							l1endinl2 << "," <<
-							l2beginl1 << "," <<
-							l2endinl1 << "," );
-				return FRONT;
-			}
+			return FRONT;
 		}
 		else if(std::abs(begx - l2.end_x) < LIN_SIGMA &&
-		        std::abs(begy - l2.end_y) < LIN_SIGMA)
+		        std::abs(begy - l2.end_x) < LIN_SIGMA)
 		{
 			ROS_INFO_STREAM( "TopoFeature::checkParlell: Same as the next line" );
 			return FRONT;
@@ -230,19 +210,6 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 		}
 	}
 	return LEFT;
-}
-
-bool inter_det::TopoFeature::checkEncaps(float beg_x, float beg_y, float end_x, float end_y, float x, float y)
-{
-	if( (std::min(beg_x - LIN_SIGMA, end_x + LIN_SIGMA) <= x && x <= std::max(beg_x - LIN_SIGMA, end_x + LIN_SIGMA)) &&
-             (std::min(beg_y - LIN_SIGMA, end_y + LIN_SIGMA) <= y && y <= std::max(beg_y - LIN_SIGMA, end_y + LIN_SIGMA)) )
-        {
-        	ROS_INFO_STREAM( "TopoFeature::checkEncaps: Point <" << x << "," << y <<
-			      			"> Inside Line [(" << beg_x << "," << beg_y 
-						<< ")(" << end_x << "," << end_y << ")]" );
-                return true;
-        }
-	return false;
 }
 int inter_det::TopoFeature::buildRelation()
 {
@@ -270,7 +237,6 @@ int inter_det::TopoFeature::buildRelation()
 	{
 		node_count++;
 		cur = i;
-		bool create = true;
 		ROS_INFO_STREAM( "TopoFeature::buildRelation: Before allocating space!" );
 		struct relation* fr = (struct relation*)malloc(sizeof(struct relation));
 		struct relation* br = (struct relation*)malloc(sizeof(struct relation));
@@ -432,36 +398,6 @@ int inter_det::TopoFeature::buildRelation()
                                                 topo_vec_[next].beg_x, topo_vec_[next].beg_y) > LIN_GAP_SIGMA)
                                         br->side_gap = fr->side_gap = true;
 			}
-			else if( side_check == L1INL2 )
-			{
-				delete fr, br;
-				new_node->info.beg_x = next_new_node->info.beg_x;
-				new_node->info.beg_y = next_new_node->info.beg_y;
-				new_node->info.end_x = next_new_node->info.end_x;
-				new_node->info.end_y = next_new_node->info.end_y;
-				delete next_new_node;
-				new_node->fr = NULL;
-				create = false;
-				node_count--;
-			}
-			else if( side_check == L2INL1 )
-			{
-				delete fr, br;
-				delete next_new_node;
-				new_node->fr = NULL;
-				create = false;
-				node_count--;
-			}
-			else if( side_check == L1ENDINL2 || side_check == L2BEGINL1 )
-			{
-				delete fr, br;
-				new_node->info.end_x = next_new_node->info.end_x;
-				new_node->info.end_y = next_new_node->info.end_y;
-				delete next_new_node;
-				new_node->fr = NULL;
-				create = false;
-				node_count--;
-			}
 			else
 			{
 				ROS_INFO_STREAM( "TopoFeature::buildRelation: Parlell angles should not be different than the current" );
@@ -510,8 +446,7 @@ int inter_det::TopoFeature::buildRelation()
 
 		prev_beg_x = node_ref_->info.beg_x;
 		prev_end_y = node_ref_->info.end_y;
-		if( create )
-			node_ref_ = next_new_node;
+		node_ref_ = next_new_node;
 	}
 	return(node_count);
 }
