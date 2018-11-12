@@ -67,13 +67,13 @@ class LaserScanListener{
 
   boost::mutex scan_mutex_;
 
-  struct PoseBin
+  /*struct PoseBin
   {
 	  geometry_msgs::Pose p;
 	  std::map<int,int> bin;
-  };
+  };*/
 
-  std::list<PoseBin*> is_;
+  std::list<std::pair<geometry_msgs::Pose,std::map<int,int>>> is_;
 
   enum features{BREAKPOINT,LINE,CURVE,CORNER};
   enum angle_range{UNKNOWN,acute,obtuse,per,par};

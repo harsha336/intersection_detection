@@ -10,11 +10,11 @@ LaserScanListener::LaserScanListener() :
 {
     ROS_INFO("LaserScanListener::LaserScanListener: Created new node!");
     nh_private_.param("odom_frame", odom_, std::string("odom"));
-    nh_private_.param("base_link_frame", base_link_, std::string("base_link"));
+    nh_private_.param("base_link_frame", base_link_, std::string("chassis"));
     
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
     
-    laser_sub_.subscribe(nh_,"/scan_filtered",10);
+    laser_sub_.subscribe(nh_,"/scan",10);
     laser_notifier_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tf_, base_link_.c_str(), 10);
     laser_notifier_->registerCallback(
       	boost::bind(&LaserScanListener::scanCallback, this, _1));
@@ -36,23 +36,23 @@ void LaserScanListener::scanCallback (const sensor_msgs::LaserScan::ConstPtr sca
 	    return;
     }
     
-	try
+    try
     {
     	if(checkLastProcessTime())
-		{
+	{
     		scan_mutex_.lock();
     		detectBreakPoint(scan);
 			scan_mutex_.unlock();
-		}
-		else
-		{
-			ROS_INFO_STREAM( "LaserScanListener::scanCallback: Last proc time: "
+	}
+	else
+	{
+		ROS_WARN_STREAM( "LaserScanListener::scanCallback: Last proc time: "
 				   	<< last_proc_time_ << "Allowing time!");
-		}
+	}
     }
     catch ( std::exception const &e )
     {
-    	ROS_INFO_STREAM( "LaserScanListener::scanCallback: Unable to lock: " <<
+    	ROS_WARN_STREAM( "LaserScanListener::scanCallback: Unable to lock: " <<
 				e.what());
     }
 }
@@ -115,7 +115,7 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
     delta_phi = scan.angle_increment; lambda = 0.174f; sigma_r = 0.05;
 
     start = pcl_iter = pcl_cloud_->begin()+1;
-	ROS_DEBUG("LaserScanListener::detectBreakPoint: length of pcl cloud: %d", (int)pcl_cloud_->size());
+    ROS_DEBUG("LaserScanListener::detectBreakPoint: length of pcl cloud: %d", (int)pcl_cloud_->size());
 
     if(!std::isinf(scan.ranges[0]))
     {
@@ -127,7 +127,8 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
     ROS_DEBUG("FOR LOOP BEGIN");
     float angle;
     
-	for(int i=1;i<scan.ranges.size();i++){
+    for(int i=1;i<scan.ranges.size();i++)
+    {
       	angle = (i*delta_phi) + scan.angle_min;
       	if(std::abs(scan.ranges[i]) > MAX_RANGE_THRESH)
       	{
@@ -139,24 +140,24 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
       	{
         	dmax = (prev_range*(sin(delta_phi)/sin(lambda-delta_phi)))+5*sigma_r;
         	euc_dist = computeEuclidDist(pcl_iter, pcl_iter-1);
-			ROS_INFO_STREAM("LaserScanListener::detectBreakPoint: Euclidean distance: " <<
+		ROS_DEBUG_STREAM("LaserScanListener::detectBreakPoint: Euclidean distance: " <<
                                 euc_dist << "dmax: " << dmax );
         	if(euc_dist > dmax)
         	{
 	    		ROS_DEBUG_STREAM( "LaserScanListener::detectBreakPoint: Angle reached here: " << angle); 
 	    		ROS_DEBUG_STREAM( "LaserScanListener::detectBreakPoint: Points got from laser scan :<" <<scan.ranges[i]*cos(angle) << "," << scan.ranges[i]*sin(angle) << ">");
-				int s, e;
-				s = std::distance(pcl_cloud_->begin(),start);
-				e = std::distance(pcl_cloud_->begin(),pcl_iter-1);
+			int s, e;
+			s = std::distance(pcl_cloud_->begin(),start);
+			e = std::distance(pcl_cloud_->begin(),pcl_iter-1);
 	    		ROS_DEBUG_STREAM( "LaserScanListener::detectBreakPoint: Starting from : " << s << " to :" << e);
 	    		detectLineSegments(start, pcl_iter-1);
-	  			start = pcl_iter;
+	  		start = pcl_iter;
         	}
       	}
       	else
       	{
-			prev_range = scan.ranges[i];
-			prev_range_set = 1;
+		prev_range = scan.ranges[i];
+		prev_range_set = 1;
         	continue;
       	}
 
@@ -165,12 +166,12 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
       	pcl_iter++;
     }
     
-	if(start < (pcl_iter-5))
+    if(start < (pcl_iter-5))
       	if ( std::abs((start->x)) < 10 )
         	detectLineSegments(start, pcl_iter-1);
     topo_feat_.printTopoFeatures();
     scan_recv_ = true;
-    ROS_INFO("FOR LOOP END!");
+    ROS_DEBUG("FOR LOOP END!");
     return;
 }
 
@@ -183,32 +184,31 @@ void LaserScanListener::processScan()
 	while( nh_.ok())
 	{
 	    	try
-			{
+		{
 		    	last_proc_time_ = ros::Time::now();
 		    	if(scan_recv_)
 		    	{
-					ROS_INFO("Trying to get mutex!");
 		    		scan_mutex_.lock();
-					rel_ret = topo_feat_.buildRelation();
-					ROS_INFO_STREAM( "LaserScanListener::processScan: Return is: " << rel_ret);
-					if( rel_ret > 0 )
-					{
-						topo_feat_.printRelation();
-						inter_pose = topo_feat_.identifyIntersection();
-						publishIntersection(inter_pose);
-					}
-					if(rel_ret != 0)
-						topo_feat_.clearTopoFeatures(std::abs(rel_ret));
-					scan_mutex_.unlock();
+				rel_ret = topo_feat_.buildRelation();
+				ROS_DEBUG_STREAM( "LaserScanListener::processScan: Return is: " << rel_ret);
+				if( rel_ret > 0 )
+				{
+					topo_feat_.printRelation();
+					inter_pose = topo_feat_.identifyIntersection();
+					publishIntersection(inter_pose);
+				}
+				if(rel_ret != 0)
+					topo_feat_.clearTopoFeatures(std::abs(rel_ret));
+				scan_mutex_.unlock();
 		    	}
-			}
-			catch( std::exception const &e )
-			{
-				ROS_INFO_STREAM( "LaserScanListener::processScan: Scan mutex lock failed: " <<
+		}
+		catch( std::exception const &e )
+		{
+			ROS_WARN_STREAM( "LaserScanListener::processScan: Scan mutex lock failed: " <<
 							e.what());
-			}
-			ros::spinOnce();
-			r.sleep();
+		}
+		ros::spinOnce();
+		r.sleep();
 	}
 	if( nh_.ok() != true )
 	{
@@ -223,14 +223,10 @@ void LaserScanListener::detectLineSegments(pcl::PointCloud<pcl::PointXYZ>::itera
 
     ROS_DEBUG_STREAM( "LaserScanListener::detectLineSegments: Pcl params: " <<
     		      			"begin: " << std::distance(pcl_cloud_->begin(),begin) <<
-		      				"end: " << std::distance(pcl_cloud_->begin(),end));
+		      			"end: " << std::distance(pcl_cloud_->begin(),end));
 
     if(std::distance(begin,end) < 5)
-    {
-    	ROS_WARN_STREAM( "LaserScanListener::detectLineSegments: The number of scans [" << 
-				std::distance(begin,end) << "] is less than the line threshold." );
-		return;
-    }
+	return;
 
     pcl::PointCloud<pcl::PointXYZ>::iterator ppit_ls,ppit_fi,ppit_bi;
 
@@ -254,8 +250,8 @@ void LaserScanListener::detectLineSegments(pcl::PointCloud<pcl::PointXYZ>::itera
 
     for(ppit_ls = begin+1;ppit_ls<=end-1;ppit_ls++)
     {
-		ppit_fi = ppit_ls + 1;
-		ppit_bi = ppit_ls - 1;
+	ppit_fi = ppit_ls + 1;
+	ppit_bi = ppit_ls - 1;
 
       	flag_fi = flag_bi = 1;
       	real_dist_fi = real_dist_bi = 0.0f;
@@ -265,35 +261,35 @@ void LaserScanListener::detectLineSegments(pcl::PointCloud<pcl::PointXYZ>::itera
       	while(flag_fi)
       	{
         	euc_dist_fi = computeEuclidDist(ppit_fi,ppit_ls);
-			real_dist_fi += computeEuclidDist(ppit_fi,ppit_fi-1);
+		real_dist_fi += computeEuclidDist(ppit_fi,ppit_fi-1);
 	
-			if((euc_dist_fi < (real_dist_fi - Uk)) || (ppit_fi >= end))
-			{
-	  			flag_fi = 0;
-				ROS_DEBUG_STREAM( "Iterator: " << std::distance(pcl_cloud_->begin(),ppit_fi));
-	  			ROS_DEBUG_STREAM("LaserScanListener::detectLineSegments:[Forward] Reached the end of pcl_cloud_ or euclidean distance " 
+		if((euc_dist_fi < (real_dist_fi - Uk)) || (ppit_fi >= end))
+		{
+	  		flag_fi = 0;
+			ROS_DEBUG_STREAM( "Iterator: " << std::distance(pcl_cloud_->begin(),ppit_fi));
+	  		ROS_DEBUG_STREAM("LaserScanListener::detectLineSegments:[Forward] Reached the end of pcl_cloud_ or euclidean distance " 
 						<< euc_dist_fi << "less than real laser distance " << real_dist_fi);
-			}	
-			else
-				ppit_fi++;
+		}	
+		else
+			ppit_fi++;
       	}
 
       	while(flag_bi)
       	{
         	euc_dist_bi = computeEuclidDist(ppit_bi,ppit_ls);
-			real_dist_bi += computeEuclidDist(ppit_bi,ppit_bi+1);
+		real_dist_bi += computeEuclidDist(ppit_bi,ppit_bi+1);
 			
-			if(std::isinf(real_dist_bi))
-	  			real_dist_bi = 0.0f;
+		if(std::isinf(real_dist_bi))
+	  		real_dist_bi = 0.0f;
 
-			if((euc_dist_bi < (real_dist_bi - Uk)) || (ppit_bi <= begin))
-			{
-	  			flag_bi = 0;
-				ROS_DEBUG_STREAM("Iterator: " << std::distance(pcl_cloud_->begin(),ppit_bi));
-	  			ROS_DEBUG_STREAM("LaserScanListener::detectLineSegments:[Backward] Reached the beginning of pcl_cloud_ or euclidean distance " << euc_dist_bi << " less than real laser distance" << real_dist_bi);
-			}
-			else
-				ppit_bi--;
+		if((euc_dist_bi < (real_dist_bi - Uk)) || (ppit_bi <= begin))
+		{
+	  		flag_bi = 0;
+			ROS_DEBUG_STREAM("Iterator: " << std::distance(pcl_cloud_->begin(),ppit_bi));
+	  		ROS_DEBUG_STREAM("LaserScanListener::detectLineSegments:[Backward] Reached the beginning of pcl_cloud_ or euclidean distance " << euc_dist_bi << " less than real laser distance" << real_dist_bi);
+		}
+		else
+			ppit_bi--;
       	}
 
       	//STEP 2
@@ -317,7 +313,7 @@ void LaserScanListener::detectLineSegments(pcl::PointCloud<pcl::PointXYZ>::itera
       	if(std::isinf(theta_i) || std::isnan(theta_i))
        		theta_i = 0;
 	
-		ROS_DEBUG_STREAM( "LaserScanListener::detectLineSegments[Step 3]: theta_i is: " << theta_i );
+	ROS_DEBUG_STREAM( "LaserScanListener::detectLineSegments[Step 3]: theta_i is: " << theta_i );
        
       	//STEP 3
       	if(((std::abs(theta_i) <= theta_min_) || (std::abs(theta_i - M_PI) < theta_min_)) && ((real_dist_fi + real_dist_bi)>=LIN_SIGMA))
@@ -343,8 +339,8 @@ float LaserScanListener::constrainAngle(float x)
     return (x - M_PI);
   }
 
-  /*void LaserScanListener::detectCurveAndCorner(std::vector<PointParamters>::iterator begin,std::vector<PointParamters>::iterator end)
-  {
+/*void LaserScanListener::detectCurveAndCorner(std::vector<PointParamters>::iterator begin,std::vector<PointParamters>::iterator end)
+{
     //ROS_INFO("LaserScanListener::detectCurveAndCorn_er: Method entered!");
     int ie, ib;
     float Uc, sum_theta, max_theta, ci;
@@ -424,24 +420,6 @@ float LaserScanListener::constrainAngle(float x)
     //ROS_INFO("LaserScanListener::detectCurveAndCorn_er: Finished!");
   //}
 
-void LaserScanListener::publishPoint(pcl::PointCloud<pcl::PointXYZ>::iterator iter,int point_type)
-{
-    if(point_type != BREAKPOINT)
-    {
-      ROS_INFO("not publishing points other than breakpoints currently!");
-      return;
-    }
-    geometry_msgs::Point gp;
-
-    gp.x = iter->x;
-    gp.y = iter->y;
-    gp.z = iter->z;
-
-    p_.points.push_back(gp);
-    ROS_INFO("Publishing the point of type <%d>:<%f,%f,%f>",point_type,gp.x,gp.y,gp.z);
-    //p_pub_.publish(p);
-}
-
 void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection i)
 {
     corner_detect::MidPoint msg;
@@ -450,6 +428,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
     tf::Pose pp;
     geometry_msgs::Pose p;
     bool cd;
+    bool to_pub = false;
     ROS_DEBUG_STREAM("LaserScanListener::publishIntersection: Detected midpoint: " <<
     				i.type << i.p.getOrigin().x() << "," <<
 				i.p.getOrigin().y());
@@ -475,14 +454,14 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			ROS_DEBUG_STREAM("FINAL: Current Pose: "<<ct_pose.getOrigin().x() <<","
 							<<ct_pose.getOrigin().y()<<","
 							<<ct_pose.getOrigin().z());
-			std::list<PoseBin*>::iterator it;
+			std::list<std::pair<geometry_msgs::Pose,std::map<int,int>>>::iterator it;
 			it = is_.begin();
 			bool found = false;
-			struct PoseBin* cur;
+			std::pair<geometry_msgs::Pose,std::map<int,int>> cur;
 			while(it != is_.end())
 			{
 				cur = *it;
-				cd = computeManDistance(p,cur->p);
+				cd = computeManDistance(p,cur.first);
 				ROS_DEBUG_STREAM("FINAL: Distance inside while loop between pose-intersection" << cd);
 				if(cd)
 				{
@@ -490,7 +469,9 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 					msg.pose = p;
 					msg.intersection_name = convertEnumToString(i.type);
 					found = true;
-					cur->bin[i.type]++;
+					std::map<int,int>::iterator mit;
+					mit = it->second.find(i.type);
+					mit->second += 1;
 					ROS_DEBUG_STREAM("FINAL: =======SAME=======");
 					break;
 				}
@@ -501,16 +482,17 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 				ROS_DEBUG_STREAM("FINAL: New pose: "<<ct_pose.getOrigin().x() << ","
 						<<ct_pose.getOrigin().y() <<","
 						<<ct_pose.getOrigin().z());
-				struct PoseBin *newp = (struct PoseBin*)malloc(sizeof(struct PoseBin));
-				newp->p = p;
-				newp->bin.insert(std::pair<int,int>(TI,0));
-				newp->bin.insert(std::pair<int,int>(RI,0));
-				newp->bin.insert(std::pair<int,int>(RT,0));
-				newp->bin.insert(std::pair<int,int>(LI,0));
-				newp->bin.insert(std::pair<int,int>(LT,0));
-				newp->bin.insert(std::pair<int,int>(FWI,0));
-				newp->bin[i.type]++;
-				is_.emplace_back(newp);
+				std::pair<geometry_msgs::Pose,std::map<int,int>> outertemp;
+				std::map<int,int> temp;
+				temp[TI] = 0;
+				temp[RI] = 0;
+				temp[RT] = 0;
+				temp[LI] = 0;
+				temp[LT] = 0;
+				temp[FWI] = 0;
+				temp[i.type] += 1;
+				outertemp = std::make_pair(p,temp);
+				is_.emplace_back(outertemp);
 				msg.reached = "NEW";
 				msg.pose = p;
 				msg.intersection_name = convertEnumToString(i.type);
@@ -525,65 +507,74 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			msg.reached = "NEW";
 			msg.pose = p;
 			msg.intersection_name = convertEnumToString(i.type);
-			struct PoseBin *newp = (struct PoseBin*)malloc(sizeof(struct PoseBin));
-                        newp->p = p;
-                        newp->bin.insert(std::pair<int,int>(TI,0));
-                        newp->bin.insert(std::pair<int,int>(RI,0));
-                        newp->bin.insert(std::pair<int,int>(RT,0));
-                        newp->bin.insert(std::pair<int,int>(LI,0));
-                        newp->bin.insert(std::pair<int,int>(LT,0));
-                        newp->bin.insert(std::pair<int,int>(FWI,0));
-                        newp->bin[i.type]++;
-			is_.emplace_back(newp);
+			std::pair<geometry_msgs::Pose,std::map<int,int>> outertemp;
+                        std::map<int,int> temp;
+                        temp[TI] = 0;
+                        temp[RI] = 0;
+                        temp[RT] = 0;
+                        temp[LI] = 0;
+                        temp[LT] = 0;
+                        temp[FWI] = 0;
+			temp[i.type] += 1;
+                        outertemp = std::make_pair(p,temp);
+                        is_.emplace_back(outertemp);
 			ROS_DEBUG_STREAM("FINAL: ========NEW=======");
 	}
+	to_pub = true;
       }
       if(!is_.empty())
       {
-		std::list<PoseBin*>::iterator it;
+		std::list<std::pair<geometry_msgs::Pose,std::map<int,int>>>::iterator it;
 		for(it = is_.begin(); it != is_.end(); it++)
 		{
       			geometry_msgs::Pose op;
 			op.position.x = odom_tf.getOrigin().x();
 			op.position.y = odom_tf.getOrigin().y();
 			op.position.z = odom_tf.getOrigin().z();
-			struct PoseBin* cur;
+			std::pair<geometry_msgs::Pose,std::map<int,int>> cur;
 			cur = *it;
-			bool cd = computeManDistance(op,cur->p);
+			bool cd = computeManDistance(op,cur.first);
 			ROS_DEBUG_STREAM("FINAL: No INT but distance between pose-intersection"<<cd);
 			if(cd)
 			{
 				msg.reached = "REACHED";
 				int sum;
-				float prob;
+				float prob = 0;
 				int large = 0;
-				for(std::map<int,int>::iterator mit = cur->bin.begin(); mit != cur->bin.end(); ++mit) 
+				int type = 0;
+				std::map<int,int>::iterator mit = cur.second.begin();
+				for(;mit != cur.second.end();mit++) 
 				{
+					ROS_INFO("Info: Type[%d]:[%d]",mit->first,mit->second);
 					if(mit->second > large)
 					{
 						msg.intersection_name = convertEnumToString(mit->first);
-						prob = mit->second;
+						prob = (float)mit->second;
+						type = mit->first;
+						ROS_INFO("Larger than before");
+						ROS_INFO("Info: Larger Type [%d]:[%f]",type,prob);
 					}
 					sum += mit->second;
 				}
 				prob = prob/sum;
-				msg.intersection_name = convertEnumToString(cur->bin[0]);
-				msg.pose = cur->p;
+				msg.intersection_name = convertEnumToString(type);
+				msg.pose = cur.first;
+				to_pub = true;
 				ROS_DEBUG_STREAM("FINAL: =====REACHED=====");
 				is_.erase(it);
 				break;
 			}
 		}
       }
-      std::list<PoseBin*>::iterator it;
+      std::list<std::pair<geometry_msgs::Pose,std::map<int,int>>>::iterator it;
       for(it = is_.begin(); it != is_.end(); it++)
       {
-      	struct PoseBin* cur;
-		cur = *it;
+        std::pair<geometry_msgs::Pose,std::map<int,int>> cur;
+	cur = *it;
       	ROS_DEBUG_STREAM("FINAL: [" << std::distance(is_.begin(),it) << "]:"
-				<< cur->p.position.x << ","
-				<< cur->p.position.y << ","
-				<< cur->p.position.z);
+				<< cur.first.position.x << ","
+				<< cur.first.position.y << ","
+				<< cur.first.position.z);
       }
       ROS_DEBUG_STREAM("================================");
       ROS_DEBUG_STREAM("Odom tf is: " << odom_tf.getOrigin().x() << ","
@@ -595,7 +586,8 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
     {
     	ROS_ERROR("LaserScanListener::detectLineSegments: Clearing topo features : %s",ex.what());
     }
-    int_pub_.publish(msg);
+    if(to_pub)
+    	int_pub_.publish(msg);
 }
 
 float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)

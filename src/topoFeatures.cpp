@@ -41,7 +41,7 @@ void inter_det::TopoFeature::addTopoFeat(int feat, int pos, float beg_x, float b
 
   if(!topo_found)
   {
-      ROS_INFO("Topo adding!");
+      ROS_DEBUG("Topo adding!");
       temp_topo.feat = feat;
       temp_topo.position = pos;
       temp_topo.beg_x = beg_x;
@@ -93,7 +93,7 @@ void inter_det::TopoFeature::clearTopoFeatures(int ret_count)
 		else
 			temp_h = NULL;
 		delete temp;
-		ROS_INFO( "TopoFeature::clearTopoFeatures: before assign");
+		ROS_DEBUG( "TopoFeature::clearTopoFeatures: before assign");
 		temp_h = temp;
 	}
 	
