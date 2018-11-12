@@ -21,7 +21,6 @@
 class LaserScanListener{
 
 
-//public:
 
   ros::NodeHandle nh_private_, nh_;
 
