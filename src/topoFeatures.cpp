@@ -545,12 +545,12 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 	ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: right type: " <<
 				node_head_->type << "left type: " << node_head_->br->next->type );
 
-	 ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: Right Line: <" <<
+	ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: Right Line: <" <<
                                         right->info.beg_x << "," << right->info.beg_y << "><" <<
                                         right->info.end_x << "," << right->info.end_y << ">" <<
 										right->fr->rel_to );
 
-	  ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: Left Line: <" <<
+	ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: Left Line: <" <<
                                         left->info.beg_x << "," << left->info.beg_y << "><" <<
                                         left->info.end_x << "," << left->info.end_y << ">" <<
 										left->br->rel_to );
@@ -620,10 +620,10 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 
 inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(bool right_space, bool left_space, bool center_space)
 {
-	ROS_DEBUG_STREAM("TopoFeature::identifyIntersection: center: "<< center_space <<
-					"left: " << left_space << "right: " << right_space);
+    ROS_DEBUG_STREAM("TopoFeature::identifyIntersection: center: "<< center_space <<
+			"left: " << left_space << "right: " << right_space);
 	
-	if(left_space && right_space && center_space)
+    if(left_space && right_space && center_space)
     {
         	ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: FOUR_WAY" );
             pose_.type = FWI;
@@ -664,24 +664,24 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
         	ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: NOTHING" );
             pose_.type = UNKW;
     }
-	if(pose_.type != UNKW)
+    if(pose_.type != UNKW)
+    {
+	if(node_head_ != NULL)
 	{
-		if(node_head_ != NULL)
+		float mp_x, mp_y;
+		if(node_head_->br != NULL)
 		{
-			float mp_x, mp_y;
-			if(node_head_->br != NULL)
+			if(pose_.type == TI || pose_.type == FWI)
 			{
-			  if(pose_.type == TI || pose_.type == FWI)
-			  {
 				mp_x = (node_head_->br->next->info.beg_x +
 						node_head_->info.end_x)/2;
 				mp_y = (node_head_->br->next->info.beg_y +
 					node_head_->info.end_y)/2;
 				pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
 						tf::Vector3(mp_x,mp_y,0.0f));
-			  }
-			  else if(pose_.type == LI || pose_.type == LT)
-			  {
+			}
+			else if(pose_.type == LI || pose_.type == LT)
+			{
 			  	float vec[2];
 				float magr, magl;
 				vec[0] = (node_head_->br->next->info.beg_x - 
@@ -709,9 +709,9 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 				
 				pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
 						tf::Vector3(mp_x,mp_y,0.0f));
-			  }
-			  else if(pose_.type == RI || pose_.type == RT)
-			  {
+			}
+			else if(pose_.type == RI || pose_.type == RT)
+			{
 			  	float vec[2];
 				float magr, magl;
 				vec[0] = (node_head_->info.end_x - 
@@ -739,9 +739,9 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 
 				pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
 						tf::Vector3(mp_x,mp_y,0.0f));
-			  }
 			}
 		}
+	    }
 	}
 	ROS_DEBUG_STREAM(" TopoFeature::identifyIntersection: Type: " << pose_.type);
 	return pose_;

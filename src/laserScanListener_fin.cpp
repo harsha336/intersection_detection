@@ -449,7 +449,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
     tf::Transform ct_pose, pt_pose;
     tf::Pose pp;
     geometry_msgs::Pose p;
-    bool cd;
+    float cd;
     ROS_DEBUG_STREAM("LaserScanListener::publishIntersection: Detected midpoint: " <<
     				i.type << i.p.getOrigin().x() << "," <<
 				i.p.getOrigin().y());
@@ -475,22 +475,21 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			ROS_DEBUG_STREAM("FINAL: Current Pose: "<<ct_pose.getOrigin().x() <<","
 							<<ct_pose.getOrigin().y()<<","
 							<<ct_pose.getOrigin().z());
-			std::list<PoseBin*>::iterator it;
+			std::list<std::pair<int,geometry_msgs::Pose>>::iterator it;
 			it = is_.begin();
 			bool found = false;
-			struct PoseBin* cur;
+			std::pair<int,geometry_msgs::Pose> cur;
 			while(it != is_.end())
 			{
 				cur = *it;
-				cd = computeManDistance(p,cur->p);
+				cd = computeDistance(p,cur.second);
 				ROS_DEBUG_STREAM("FINAL: Distance inside while loop between pose-intersection" << cd);
-				if(cd)
+				if(cd < 2)
 				{
 					msg.reached = "SAME";
 					msg.pose = p;
 					msg.intersection_name = convertEnumToString(i.type);
 					found = true;
-					cur->bin[i.type]++;
 					ROS_DEBUG_STREAM("FINAL: =======SAME=======");
 					break;
 				}
@@ -501,16 +500,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 				ROS_DEBUG_STREAM("FINAL: New pose: "<<ct_pose.getOrigin().x() << ","
 						<<ct_pose.getOrigin().y() <<","
 						<<ct_pose.getOrigin().z());
-				struct PoseBin *newp = (struct PoseBin*)malloc(sizeof(struct PoseBin));
-				newp->p = p;
-				newp->bin.insert(std::pair<int,int>(TI,0));
-				newp->bin.insert(std::pair<int,int>(RI,0));
-				newp->bin.insert(std::pair<int,int>(RT,0));
-				newp->bin.insert(std::pair<int,int>(LI,0));
-				newp->bin.insert(std::pair<int,int>(LT,0));
-				newp->bin.insert(std::pair<int,int>(FWI,0));
-				newp->bin[i.type]++;
-				is_.emplace_back(newp);
+				is_.emplace_back(std::pair<int,geometry_msgs::Pose>(i.type,p));
 				msg.reached = "NEW";
 				msg.pose = p;
 				msg.intersection_name = convertEnumToString(i.type);
@@ -525,65 +515,43 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			msg.reached = "NEW";
 			msg.pose = p;
 			msg.intersection_name = convertEnumToString(i.type);
-			struct PoseBin *newp = (struct PoseBin*)malloc(sizeof(struct PoseBin));
-                        newp->p = p;
-                        newp->bin.insert(std::pair<int,int>(TI,0));
-                        newp->bin.insert(std::pair<int,int>(RI,0));
-                        newp->bin.insert(std::pair<int,int>(RT,0));
-                        newp->bin.insert(std::pair<int,int>(LI,0));
-                        newp->bin.insert(std::pair<int,int>(LT,0));
-                        newp->bin.insert(std::pair<int,int>(FWI,0));
-                        newp->bin[i.type]++;
-			is_.emplace_back(newp);
+			is_.emplace_back(std::pair<int,geometry_msgs::Pose>(i.type,p));
 			ROS_DEBUG_STREAM("FINAL: ========NEW=======");
 	}
       }
       if(!is_.empty())
       {
-		std::list<PoseBin*>::iterator it;
+		std::list<std::pair<int,geometry_msgs::Pose>>::iterator it;
 		for(it = is_.begin(); it != is_.end(); it++)
 		{
       			geometry_msgs::Pose op;
 			op.position.x = odom_tf.getOrigin().x();
 			op.position.y = odom_tf.getOrigin().y();
 			op.position.z = odom_tf.getOrigin().z();
-			struct PoseBin* cur;
+			std::pair<int,geometry_msgs::Pose> cur;
 			cur = *it;
-			bool cd = computeManDistance(op,cur->p);
+			float cd = computeDistance(op,cur.second);
 			ROS_DEBUG_STREAM("FINAL: No INT but distance between pose-intersection"<<cd);
-			if(cd)
+			if(cd < 0.2)
 			{
 				msg.reached = "REACHED";
-				int sum;
-				float prob;
-				int large = 0;
-				for(std::map<int,int>::iterator mit = cur->bin.begin(); mit != cur->bin.end(); ++mit) 
-				{
-					if(mit->second > large)
-					{
-						msg.intersection_name = convertEnumToString(mit->first);
-						prob = mit->second;
-					}
-					sum += mit->second;
-				}
-				prob = prob/sum;
-				msg.intersection_name = convertEnumToString(cur->bin[0]);
-				msg.pose = cur->p;
+				msg.intersection_name = convertEnumToString(cur.first);
+				msg.pose = cur.second;
 				ROS_DEBUG_STREAM("FINAL: =====REACHED=====");
 				is_.erase(it);
 				break;
 			}
 		}
       }
-      std::list<PoseBin*>::iterator it;
+      std::list<std::pair<int,geometry_msgs::Pose>>::iterator it;
       for(it = is_.begin(); it != is_.end(); it++)
       {
-      	struct PoseBin* cur;
+      	std::pair<int,geometry_msgs::Pose> cur;
 		cur = *it;
       	ROS_DEBUG_STREAM("FINAL: [" << std::distance(is_.begin(),it) << "]:"
-				<< cur->p.position.x << ","
-				<< cur->p.position.y << ","
-				<< cur->p.position.z);
+				<< cur.second.position.x << ","
+				<< cur.second.position.y << ","
+				<< cur.second.position.z);
       }
       ROS_DEBUG_STREAM("================================");
       ROS_DEBUG_STREAM("Odom tf is: " << odom_tf.getOrigin().x() << ","
@@ -605,14 +573,6 @@ float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::P
 	float dist_y = a.position.y - b.position.y;
 	dist = sqrt(pow(dist_x,2) + pow(dist_y,2));
 	return dist;
-}
-
-bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)
-{
-	if(std::abs(a.position.x - b.position.x) < 0.5 &&
-			std::abs(a.position.y - b.position.y) < 0.5)
-		return true;
-	return false;
 }
 
 float LaserScanListener::computeEuclidDist(pcl::PointCloud<pcl::PointXYZ>::iterator pcl1,pcl::PointCloud<pcl::PointXYZ>::iterator pcl2)
