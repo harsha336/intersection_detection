@@ -67,7 +67,13 @@ class LaserScanListener{
 
   boost::mutex scan_mutex_;
 
-  std::list<std::pair<int,geometry_msgs::Pose>> is_;
+  struct PoseBin
+  {
+	  geometry_msgs::Pose p;
+	  std::map<int,int> bin;
+  };
+
+  std::list<PoseBin*> is_;
 
   enum features{BREAKPOINT,LINE,CURVE,CORNER};
   enum angle_range{UNKNOWN,acute,obtuse,per,par};
@@ -94,6 +100,7 @@ class LaserScanListener{
   protected: float constrainAngle(float);
   protected: void publishIntersection(inter_det::TopoFeature::intersection);
   protected: float computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b);
+  protected: bool computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b);
   
   public: void processScan();
   protected: bool checkLastProcessTime()
