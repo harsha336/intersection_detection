@@ -84,7 +84,6 @@ namespace inter_det
     enum intersec{TI,RI,RT,LI,LT,FWI,UNKW};
 
     tf::Transform cur_tf_;
-    //typdef struct intersection inter;
 
 	  public:
     void setCurrentTf(tf::Transform t);
@@ -110,5 +109,4 @@ namespace inter_det
     	return(sqrt(pow((t.beg_x - t.end_x),2) + pow((t.beg_y - t.end_y),2)));
     }
   };
-
 }
