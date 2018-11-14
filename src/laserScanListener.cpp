@@ -10,11 +10,11 @@ LaserScanListener::LaserScanListener() :
 {
     ROS_INFO("LaserScanListener::LaserScanListener: Created new node!");
     nh_private_.param("odom_frame", odom_, std::string("odom"));
-    nh_private_.param("base_link_frame", base_link_, std::string("chassis"));
+    nh_private_.param("base_link_frame", base_link_, std::string("base_link"));
     
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
     
-    laser_sub_.subscribe(nh_,"/scan",10);
+    laser_sub_.subscribe(nh_,"/scan_filtered",10);
     laser_notifier_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tf_, base_link_.c_str(), 10);
     laser_notifier_->registerCallback(
       	boost::bind(&LaserScanListener::scanCallback, this, _1));
@@ -520,7 +520,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
                         is_.emplace_back(outertemp);
 			ROS_DEBUG_STREAM("FINAL: ========NEW=======");
 	}
-	to_pub = true;
+	//to_pub = true;
       }
       if(!is_.empty())
       {
@@ -538,7 +538,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			if(cd)
 			{
 				msg.reached = "REACHED";
-				int sum;
+				int sum =0;
 				float prob = 0;
 				int large = 0;
 				int type = 0;
@@ -551,16 +551,20 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 						msg.intersection_name = convertEnumToString(mit->first);
 						prob = (float)mit->second;
 						type = mit->first;
+						large = mit->second;
 						ROS_INFO("Larger than before");
 						ROS_INFO("Info: Larger Type [%d]:[%f]",type,prob);
 					}
 					sum += mit->second;
 				}
 				prob = prob/sum;
+				ROS_INFO("SUM: [%d]",sum);
 				msg.intersection_name = convertEnumToString(type);
 				msg.pose = cur.first;
-				to_pub = true;
-				ROS_DEBUG_STREAM("FINAL: =====REACHED=====");
+				if(sum < 5)
+					to_pub = false;
+				else
+					ROS_DEBUG_STREAM("FINAL: =====REACHED PUBLISH=====");
 				is_.erase(it);
 				break;
 			}
@@ -601,8 +605,8 @@ float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::P
 
 bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)
 {
-	if(std::abs(a.position.x - b.position.x) < 0.5 &&
-			std::abs(a.position.y - b.position.y) < 0.5)
+	if(std::abs(a.position.x - b.position.x) < LIN_SIGMA &&
+			std::abs(a.position.y - b.position.y) < LIN_SIGMA)
 		return true;
 	return false;
 }
