@@ -461,7 +461,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			while(it != is_.end())
 			{
 				cur = *it;
-				cd = computeManDistance(p,cur.first);
+				cd = computeManDistance(p,cur.first,false);
 				ROS_DEBUG_STREAM("FINAL: Distance inside while loop between pose-intersection" << cd);
 				if(cd)
 				{
@@ -522,6 +522,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 	}
 	//to_pub = true;
       }
+
       if(!is_.empty())
       {
 		std::list<std::pair<geometry_msgs::Pose,std::map<int,int>>>::iterator it;
@@ -533,8 +534,9 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			op.position.z = odom_tf.getOrigin().z();
 			std::pair<geometry_msgs::Pose,std::map<int,int>> cur;
 			cur = *it;
-			bool cd = computeManDistance(op,cur.first);
-			ROS_DEBUG_STREAM("FINAL: No INT but distance between pose-intersection"<<cd);
+			bool cd = computeManDistance(op,cur.first,true);
+			float ecd = computeDistance(op,cur.first);
+			bool del_mp = false;
 			if(cd)
 			{
 				msg.reached = "REACHED";
@@ -562,11 +564,28 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 				msg.intersection_name = convertEnumToString(type);
 				msg.pose = cur.first;
 				if(sum < 5)
+				{
 					to_pub = false;
+					del_mp = true;
+				}
 				else
-					ROS_DEBUG_STREAM("FINAL: =====REACHED PUBLISH=====");
+				{
+					ROS_INFO_STREAM("FINAL: =====REACHED PUBLISH=====\n" << 
+							"Point: (" << cur.first.position.x << "," <<
+							cur.first.position.y << ")\n" <<
+							"Robot Position: (" << op.position.x << "," <<
+							op.position.y << ")");
+					del_mp = true;
+					to_pub = true;
+				}
 				is_.erase(it);
 				break;
+			}
+			else if(ecd > 5 && del_mp)
+			{
+				ROS_INFO("Deleting the point[%f,%f] with distance : %f!",cur.first.position.x,cur.first.position.y,ecd);
+				ROS_INFO("Odom position: (%f,%f)", op.position.x, op.position.y);
+				is_.erase(it);
 			}
 		}
       }
@@ -591,7 +610,10 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
     	ROS_ERROR("LaserScanListener::detectLineSegments: Clearing topo features : %s",ex.what());
     }
     if(to_pub)
+	{
+		ROS_INFO("PUBLISHING MESSAGE!!!!!");
     	int_pub_.publish(msg);
+	}
 }
 
 float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)
@@ -603,10 +625,16 @@ float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::P
 	return dist;
 }
 
-bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)
+bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b,bool reach)
 {
-	if(std::abs(a.position.x - b.position.x) < LIN_SIGMA &&
-			std::abs(a.position.y - b.position.y) < LIN_SIGMA)
+	float thresh;
+	if(reach)
+		thresh = 0.2;
+	else
+		thresh = 1;
+
+	if(std::abs(a.position.x - b.position.x) < thresh &&
+			std::abs(a.position.y - b.position.y) < thresh )
 		return true;
 	return false;
 }
