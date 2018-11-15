@@ -673,10 +673,31 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 		{
 			if(pose_.type == TI || pose_.type == FWI)
 			{
-				mp_x = (node_head_->br->next->info.beg_x +
-						node_head_->info.end_x)/2;
-				mp_y = (node_head_->br->next->info.beg_y +
-					node_head_->info.end_y)/2;
+				float vec[2];
+				float magr, magl;
+
+				vec[0] = (node_head_->br->next->info.beg_x -
+					  node_head_->br->next->info.end_x);
+				vec[1] = (node_head_->br->next->info.beg_y -
+					  node_head_->br->next->info.end_y);
+				magl = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
+				vec[0] = vec[0] / magl;
+				vec[1] = vec[1] / magl;
+				mp_x = node_head_->br->next->info.beg_x;// + 0.2*vec[0];
+				mp_y = node_head_->br->next->info.beg_y;// + 0.2*vec[1];
+
+				vec[0] = (node_head_->info.beg_x -
+					  node_head_->info.end_x);
+				vec[1] = (node_head_->info.beg_y -
+					  node_head_->info.end_y);
+				magr = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
+				vec[0] = vec[0] / magr;
+				vec[1] = vec[1] / magr;
+				float temp_x = node_head_->info.end_x;// + 0.2*vec[0];
+				float temp_y = node_head_->info.end_y;// + 0.2*vec[1];
+
+				mp_x = (mp_x + temp_x)/2;
+				mp_y = (mp_y + temp_y)/2;
 				pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
 						tf::Vector3(mp_x,mp_y,0.0f));
 			}
@@ -689,6 +710,14 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 				vec[1] = (node_head_->br->next->info.beg_y - 
 					  node_head_->br->next->info.end_y);
 				magl = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
+
+				vec[0] = vec[0] / magl;
+				vec[1] = vec[1] / magl;
+
+				magl = magl + 0.2;
+
+				mp_x = node_head_->br->next->info.beg_x + 0.2*vec[0];
+				mp_y = node_head_->br->next->info.beg_y + 0.2*vec[1];
 				
 				vec[0] = (node_head_->info.end_x - 
 					  node_head_->info.beg_x);
@@ -701,8 +730,8 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 				float temp_x = node_head_->info.beg_x + magl*vec[0];
 				float temp_y = node_head_->info.beg_y + magl*vec[1];
 
-				mp_x = node_head_->br->next->info.beg_x;
-				mp_y = node_head_->br->next->info.beg_y;
+				//mp_x = node_head_->br->next->info.beg_x;
+				//mp_y = node_head_->br->next->info.beg_y;
 
 				mp_x = (mp_x + temp_x)/2;
 				mp_y = (mp_y + temp_y)/2;
@@ -721,6 +750,14 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 
 				magr = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
 
+				vec[0] = vec[0] / magr;
+				vec[1] = vec[1] / magr;
+
+				magr = magr + 0.2;
+
+				mp_x = node_head_->info.end_x + 0.2*vec[0];
+				mp_y = node_head_->info.end_y + 0.2*vec[1];
+
 				vec[0] = (node_head_->br->next->info.beg_x - 
 					  node_head_->br->next->info.end_x);
 				vec[1] = (node_head_->br->next->info.beg_y -
@@ -728,11 +765,11 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 				magl = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
 				vec[0] = vec[0]/magl;
 				vec[1] = vec[1]/magl;
-				float temp_x = node_head_->br->next->info.end_x + magr*vec[0];
-				float temp_y = node_head_->br->next->info.end_y + magr*vec[1];
+				float temp_x = node_head_->br->next->info.end_x - magr*vec[0];
+				float temp_y = node_head_->br->next->info.end_y - magr*vec[1];
 
-				mp_x = node_head_->info.end_x;
-				mp_y = node_head_->info.end_y;
+				//mp_x = node_head_->info.end_x;
+				//mp_y = node_head_->info.end_y;
 
 				mp_x = (mp_x + temp_x)/2;
 				mp_y = (mp_y + temp_y)/2;

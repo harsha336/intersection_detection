@@ -629,7 +629,7 @@ bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs:
 {
 	float thresh;
 	if(reach)
-		thresh = 0.2;
+		thresh = 0.1;
 	else
 		thresh = 1;
 
