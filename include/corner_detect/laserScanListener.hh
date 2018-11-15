@@ -100,7 +100,7 @@ class LaserScanListener{
   protected: float constrainAngle(float);
   protected: void publishIntersection(inter_det::TopoFeature::intersection);
   protected: float computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b);
-  protected: bool computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b);
+  protected: bool computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b, bool reach);
   
   public: void processScan();
   protected: bool checkLastProcessTime()

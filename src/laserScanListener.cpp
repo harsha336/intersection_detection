@@ -10,11 +10,11 @@ LaserScanListener::LaserScanListener() :
 {
     ROS_INFO("LaserScanListener::LaserScanListener: Created new node!");
     nh_private_.param("odom_frame", odom_, std::string("odom"));
-    nh_private_.param("base_link_frame", base_link_, std::string("chassis"));
+    nh_private_.param("base_link_frame", base_link_, std::string("base_link"));
     
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
     
-    laser_sub_.subscribe(nh_,"/scan",10);
+    laser_sub_.subscribe(nh_,"/scan_filtered",10);
     laser_notifier_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tf_, base_link_.c_str(), 10);
     laser_notifier_->registerCallback(
       	boost::bind(&LaserScanListener::scanCallback, this, _1));
@@ -461,7 +461,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			while(it != is_.end())
 			{
 				cur = *it;
-				cd = computeManDistance(p,cur.first);
+				cd = computeManDistance(p,cur.first,false);
 				ROS_DEBUG_STREAM("FINAL: Distance inside while loop between pose-intersection" << cd);
 				if(cd)
 				{
@@ -520,8 +520,9 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
                         is_.emplace_back(outertemp);
 			ROS_DEBUG_STREAM("FINAL: ========NEW=======");
 	}
-	to_pub = true;
+	//to_pub = true;
       }
+
       if(!is_.empty())
       {
 		std::list<std::pair<geometry_msgs::Pose,std::map<int,int>>>::iterator it;
@@ -533,12 +534,13 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			op.position.z = odom_tf.getOrigin().z();
 			std::pair<geometry_msgs::Pose,std::map<int,int>> cur;
 			cur = *it;
-			bool cd = computeManDistance(op,cur.first);
-			ROS_DEBUG_STREAM("FINAL: No INT but distance between pose-intersection"<<cd);
+			bool cd = computeManDistance(op,cur.first,true);
+			float ecd = computeDistance(op,cur.first);
+			bool del_mp = false;
 			if(cd)
 			{
 				msg.reached = "REACHED";
-				int sum;
+				int sum =0;
 				float prob = 0;
 				int large = 0;
 				int type = 0;
@@ -551,18 +553,39 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 						msg.intersection_name = convertEnumToString(mit->first);
 						prob = (float)mit->second;
 						type = mit->first;
+						large = mit->second;
 						ROS_INFO("Larger than before");
 						ROS_INFO("Info: Larger Type [%d]:[%f]",type,prob);
 					}
 					sum += mit->second;
 				}
 				prob = prob/sum;
+				ROS_INFO("SUM: [%d]",sum);
 				msg.intersection_name = convertEnumToString(type);
 				msg.pose = cur.first;
-				to_pub = true;
-				ROS_DEBUG_STREAM("FINAL: =====REACHED=====");
+				if(sum < 5)
+				{
+					to_pub = false;
+					del_mp = true;
+				}
+				else
+				{
+					ROS_INFO_STREAM("FINAL: =====REACHED PUBLISH=====\n" << 
+							"Point: (" << cur.first.position.x << "," <<
+							cur.first.position.y << ")\n" <<
+							"Robot Position: (" << op.position.x << "," <<
+							op.position.y << ")");
+					del_mp = true;
+					to_pub = true;
+				}
 				is_.erase(it);
 				break;
+			}
+			else if(ecd > 5 && del_mp)
+			{
+				ROS_INFO("Deleting the point[%f,%f] with distance : %f!",cur.first.position.x,cur.first.position.y,ecd);
+				ROS_INFO("Odom position: (%f,%f)", op.position.x, op.position.y);
+				is_.erase(it);
 			}
 		}
       }
@@ -587,7 +610,10 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
     	ROS_ERROR("LaserScanListener::detectLineSegments: Clearing topo features : %s",ex.what());
     }
     if(to_pub)
+	{
+		ROS_INFO("PUBLISHING MESSAGE!!!!!");
     	int_pub_.publish(msg);
+	}
 }
 
 float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)
@@ -599,10 +625,16 @@ float LaserScanListener::computeDistance(geometry_msgs::Pose a, geometry_msgs::P
 	return dist;
 }
 
-bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b)
+bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b,bool reach)
 {
-	if(std::abs(a.position.x - b.position.x) < 0.5 &&
-			std::abs(a.position.y - b.position.y) < 0.5)
+	float thresh;
+	if(reach)
+		thresh = 0.2;
+	else
+		thresh = 1;
+
+	if(std::abs(a.position.x - b.position.x) < thresh &&
+			std::abs(a.position.y - b.position.y) < thresh )
 		return true;
 	return false;
 }

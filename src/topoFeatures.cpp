@@ -211,8 +211,8 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 
 bool inter_det::TopoFeature::checkEncaps(float beg_x, float beg_y, float end_x, float end_y, float x, float y)
 {
-	if( (std::min(beg_x - LIN_SIGMA, end_x + LIN_SIGMA) <= x && x <= std::max(beg_x - LIN_SIGMA, end_x + LIN_SIGMA)) &&
-             (std::min(beg_y - LIN_SIGMA, end_y + LIN_SIGMA) <= y && y <= std::max(beg_y - LIN_SIGMA, end_y + LIN_SIGMA)) )
+	if( (std::min(beg_x, end_x) <= x && x <= std::max(beg_x, end_x)) &&
+             (std::min(beg_y, end_y) <= y && y <= std::max(beg_y, end_y)) )
         {
         	  ROS_DEBUG_STREAM( "TopoFeature::checkEncaps: Point <" << x << "," << y <<
 			      			"> Inside Line [(" << beg_x << "," << beg_y 
@@ -565,7 +565,7 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::identifyIntersectio
 			//Perform check for T-Intersection
 			if(std::abs(right->fr->angle - PER_ANG) < ANG_SIGMA &&
 					std::abs(left->br->angle - PER_ANG) < ANG_SIGMA)
-				return(logIntersection(right->fr->same_gap, left->br->same_gap, false));
+				return(logIntersection((right->fr->same_gap|right->fr->side_gap), (left->br->same_gap|left->br->side_gap), false));
 		}
 		// Bit of complicated comparison for other intersection
 		else
