@@ -462,7 +462,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			{
 				cur = *it;
 				cd = computeManDistance(p,cur.first,false);
-				ROS_DEBUG_STREAM("FINAL: Distance inside while loop between pose-intersection" << cd);
+				ROS_DEBUG_STREAM("Distance inside while loop between pose-intersection" << cd);
 				if(cd)
 				{
 					msg.reached = "SAME";
@@ -563,7 +563,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 				ROS_INFO("SUM: [%d]",sum);
 				msg.intersection_name = convertEnumToString(type);
 				msg.pose = cur.first;
-				if(sum < 5)
+				if(sum < 10 || prob < 0.75)
 				{
 					to_pub = false;
 					del_mp = true;
@@ -629,7 +629,7 @@ bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs:
 {
 	float thresh;
 	if(reach)
-		thresh = 0.1;
+		thresh = 0.6;
 	else
 		thresh = 1;
 
