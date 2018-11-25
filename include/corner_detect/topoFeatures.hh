@@ -3,22 +3,15 @@
 #include <ros/ros.h>
 #include<tf/tf.h>
 
-#define PER_ANG 1.57
-#define PAR_ANG 3.14
-#define ACU_ANG 0.83
-#define OBT_ANG 2.35
-#define RIG_TUR_ANG 2.0
-#define LEF_TUR_ANG 3.0
-#define SIGMA 0.4
-#define ANG_SIGMA 0.35
-#define C_ANG_SIGMA 0.7
-#define A_ANG_SIGMA 0.45
-#define O_ANG_SIGMA 0.45
-#define LIN_SIGMA 0.5
-#define PAR_LIN_SIGMA 0.9
-#define GAP_SIGMA 1.5
-#define LIN_GAP_SIGMA 0.3
-
+const float PER_ANG = 1.57;
+const float PAR_ANG = 3.14;
+const float ANG_SIGMA = 0.35;
+const float C_ANG_SIGMA = 0.7;
+const float LIN_SIGMA = 0.5;
+const float PAR_LIN_SIGMA = 0.9;
+const float LIN_GAP_SIGMA = 0.3;
+const float REACH_THRESH = 0.2;
+const float SAME_THRESH = 0.5;
 namespace inter_det
 {
    struct topo

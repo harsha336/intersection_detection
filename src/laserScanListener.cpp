@@ -11,6 +11,8 @@ LaserScanListener::LaserScanListener() :
     ROS_INFO("LaserScanListener::LaserScanListener: Created new node!");
     nh_private_.param("odom_frame", odom_, std::string("odom"));
     nh_private_.param("base_link_frame", base_link_, std::string("base_link"));
+	nh_private_.param("reach_thresh", r_thresh_, REACH_THRESH);
+	nh_private_.param("same_thresh", s_thresh_, SAME_THRESH);
     
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
     
@@ -445,6 +447,10 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
       if(i.type != UNKW)
       {
     	ct_pose = odom_tf*i.p;
+		ROS_DEBUG_STREAM("FINAL: Current inter point: " <<
+				i.p.getOrigin().x() << "," <<
+				i.p.getOrigin().y() << "," <<
+				i.p.getOrigin().z());
     	tf::poseTFToMsg(ct_pose,p);
     	msg.header.stamp = ros::Time::now();
 	msg.child_frame_id = odom_;
@@ -465,10 +471,20 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 				ROS_DEBUG_STREAM("Distance inside while loop between pose-intersection" << cd);
 				if(cd)
 				{
+					tf::Transform ave_pose;
+					geometry_msgs::Pose ave_p;
+					float ax, ay, az;
+					ax = (cur.first.position.x + ct_pose.getOrigin().x())/2;
+					ay = (cur.first.position.y + ct_pose.getOrigin().y())/2;
+					az = (cur.first.position.z + ct_pose.getOrigin().z())/2;
+					ave_pose = tf::Transform(ct_pose.getRotation(),
+										tf::Vector3(ax, ay, az));
+					tf::poseTFToMsg(ave_pose,ave_p);
 					msg.reached = "SAME";
 					msg.pose = p;
 					msg.intersection_name = convertEnumToString(i.type);
 					found = true;
+					it->first = ave_p;
 					std::map<int,int>::iterator mit;
 					mit = it->second.find(i.type);
 					mit->second += 1;
@@ -563,7 +579,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 				ROS_INFO("SUM: [%d]",sum);
 				msg.intersection_name = convertEnumToString(type);
 				msg.pose = cur.first;
-				if(sum < 10 || prob < 0.75)
+				if(sum < 5 || prob < 0.75)
 				{
 					to_pub = false;
 					del_mp = true;
@@ -629,9 +645,9 @@ bool LaserScanListener::computeManDistance(geometry_msgs::Pose a, geometry_msgs:
 {
 	float thresh;
 	if(reach)
-		thresh = 0.6;
+		thresh = r_thresh_;
 	else
-		thresh = 1;
+		thresh = s_thresh_;
 
 	if(std::abs(a.position.x - b.position.x) < thresh &&
 			std::abs(a.position.y - b.position.y) < thresh )

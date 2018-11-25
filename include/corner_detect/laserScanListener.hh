@@ -29,6 +29,8 @@ class LaserScanListener{
   const int TRANSFORM_WAIT_TIME = 3.0;
   const float PI = 3.14159265358979323846;
   const float MAX_RANGE_THRESH = 10.0;
+
+  float r_thresh_, s_thresh_;
   
   // Still to be used!!
   tf::TransformListener tf_;

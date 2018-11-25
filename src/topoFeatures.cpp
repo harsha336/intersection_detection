@@ -161,6 +161,11 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 	para_y = l1.end_y - l1.beg_y;
 	begx = l1.beg_x; begy = l1.beg_y;
 	(begx > l2.beg_x)? rev = false : rev = true;
+	bool l1beginl2, l1endinl2, l2beginl1, l2endinl1;
+	l1beginl2 = checkEncaps(l2.beg_x, l2.beg_y, l2.end_x, l2.end_y, l1.beg_x, l1.beg_y);
+	l1endinl2 = checkEncaps(l2.beg_x, l2.beg_y, l2.end_x, l2.end_y, l1.end_x,l1.end_y);
+	l2beginl1 = checkEncaps(l1.beg_x, l1.beg_y, l1.end_x, l1.end_y, l2.beg_x, l2.beg_y);
+	l2endinl1 = checkEncaps(l1.beg_x, l1.beg_y, l1.end_x, l1.end_y, l2.end_x, l2.end_y);
 	while( flag && std::abs(begx) < 10 && std::abs(begy) < 10)
 	{
 		ROS_DEBUG_STREAM( "TopoFeature::checkParlell: In while loop!" << begx
@@ -172,11 +177,6 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 		   std::abs(begy - l2.beg_y) < PAR_LIN_SIGMA)
 		{
 			ROS_DEBUG_STREAM( "TopoFeature::checkParlell: They meet hence front" );
-			bool l1beginl2, l1endinl2, l2beginl1, l2endinl1;
-			l1beginl2 = checkEncaps(l2.beg_x, l2.beg_y, l2.end_x, l2.end_y, l1.beg_x, l1.beg_y);
-			l1endinl2 = checkEncaps(l2.beg_x, l2.beg_y, l2.end_x, l2.end_y, l1.end_x, l1.end_y);
-			l2beginl1 = checkEncaps(l1.beg_x, l1.beg_y, l1.end_x, l1.end_y, l2.beg_x, l2.beg_y);
-			l2endinl1 = checkEncaps(l1.beg_x, l1.beg_y, l1.end_x, l1.end_y, l2.end_x, l2.end_y);
 			if( l1beginl2 && l1endinl2 )
 				return L1INL2;
 			else if( l2beginl1 && l2endinl1 )
@@ -206,7 +206,16 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 			flag = false;
 		}
 	}
-	return LEFT;
+	if( l1beginl2 && l1endinl2 )
+		return L1INL2;
+	else if( l2beginl1 && l2endinl1 )
+		return L2INL1;
+	else if( l1endinl2 )
+		return L1ENDINL2;
+	else if( l2beginl1 )
+		return L2BEGINL1;
+	else
+		return LEFT;
 }
 
 bool inter_det::TopoFeature::checkEncaps(float beg_x, float beg_y, float end_x, float end_y, float x, float y)
