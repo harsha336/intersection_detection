@@ -13,6 +13,9 @@ LaserScanListener::LaserScanListener() :
     nh_private_.param("base_link_frame", base_link_, std::string("base_link"));
 	nh_private_.param("reach_thresh", r_thresh_, REACH_THRESH);
 	nh_private_.param("same_thresh", s_thresh_, SAME_THRESH);
+	nh_private_.param("confidence_count",CONF_COUNT, 5);
+	nh_private_.param("confidence_probability", CONF_PROB, 0.75f);
+	nh_private_.param("max_range_thresh", MAX_RANGE_THRESH, 10.0f);
     
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
     
@@ -579,7 +582,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 				ROS_INFO("SUM: [%d]",sum);
 				msg.intersection_name = convertEnumToString(type);
 				msg.pose = cur.first;
-				if(sum < 5 || prob < 0.75)
+				if(sum < CONF_COUNT || prob < CONF_PROB)
 				{
 					to_pub = false;
 					del_mp = true;

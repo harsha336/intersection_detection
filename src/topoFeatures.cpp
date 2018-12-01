@@ -420,6 +420,7 @@ int inter_det::TopoFeature::buildRelation()
 			}
 			else if( side_check == L1INL2 )
 			{
+				ROS_DEBUG("Deleting the next node");
 				delete fr, br;
 				new_node->info.beg_x = next_new_node->info.beg_x;
 				new_node->info.beg_y = next_new_node->info.beg_y;
@@ -432,6 +433,7 @@ int inter_det::TopoFeature::buildRelation()
 			}
 			else if( side_check == L2INL1 )
 			{
+				ROS_DEBUG("Deleting the next node!");
 				delete fr, br;
 				delete next_new_node;
 				new_node->fr = NULL;
@@ -440,6 +442,7 @@ int inter_det::TopoFeature::buildRelation()
 			}
 			else if( side_check == L1ENDINL2 || side_check == L2BEGINL1 )
 			{
+				ROS_DEBUG("Deleting the next node!");
 				delete fr, br;
 				new_node->info.end_x = next_new_node->info.end_x;
 				new_node->info.end_y = next_new_node->info.end_y;

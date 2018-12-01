@@ -28,7 +28,9 @@ class LaserScanListener{
   laser_geometry::LaserProjection lprojector_;
   const int TRANSFORM_WAIT_TIME = 3.0;
   const float PI = 3.14159265358979323846;
-  const float MAX_RANGE_THRESH = 10.0;
+  float MAX_RANGE_THRESH;
+  float CONF_PROB;
+  int CONF_COUNT;
 
   float r_thresh_, s_thresh_;
   
