@@ -38,7 +38,7 @@ class LaserScanListener{
   tf::TransformListener tf_;
   geometry_msgs::TransformStamped cur_tf_;
 
-  std::string odom_, base_link_, base_laser_;
+  std::string odom_, base_link_, base_laser_, scan_topic_;
 
   // Subscriber to laser scan
   message_filters::Subscriber<sensor_msgs::LaserScan> laser_sub_;

@@ -16,10 +16,11 @@ LaserScanListener::LaserScanListener() :
 	nh_private_.param("confidence_count",CONF_COUNT, 5);
 	nh_private_.param("confidence_probability", CONF_PROB, 0.75f);
 	nh_private_.param("max_range_thresh", MAX_RANGE_THRESH, 10.0f);
+    nh_private_.param("scan_topic",scan_topic_,std::string("scan_filtered"));
     
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(buffer_);
     
-    laser_sub_.subscribe(nh_,"/scan_filtered",10);
+    laser_sub_.subscribe(nh_,scan_topic_,10);
     laser_notifier_ = new tf::MessageFilter<sensor_msgs::LaserScan>(laser_sub_, tf_, base_link_.c_str(), 10);
     laser_notifier_->registerCallback(
       	boost::bind(&LaserScanListener::scanCallback, this, _1));

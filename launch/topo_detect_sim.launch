@@ -1,4 +1,6 @@
 <launch>
+<env name="ROSCONSOLE_CONFIG_FILE"
+                value="$(find corner_detect)/config/rosconsole.conf"/>
   <include file="$(find gazebo_ros)/launch/empty_world.launch" >
         <arg name="world_name" value="$(find corner_detect)/world/se1.world" />
 	<!-- <arg name="world_name" value="$(find logical_camera_plugin)/worlds/se1f1_12.world" />-->
@@ -10,7 +12,15 @@
         <remap from="pioneer3at_with_sensors::chassis" to="base_link"/>
   </include>
   <arg name="scan_topic" default="scan" />
-  <node pkg="corner_detect" type="lasescan" name="laser_scan" output="screen"/>
+  <node pkg="corner_detect" type="lasescan" name="laser_scan" output="screen" respawn="true">
+    <param name="odom_frame" value="odom" />
+    <param name="base_link_frame" value="chassis" />
+    <param name="reach_thresh" value="0.5" />
+    <param name="same_thresh" value="1" />
+    <param name="confidence_count" value="1" />
+    <param name="confidence_probability" value="0.75" />
+    <param name="scan_topic" value="scan"/>
+  </node>
 
   <node pkg="laser_filters" type="scan_to_scan_filter_chain" name="laser_filter">
     <rosparam command="load" file="$(find corner_detect)/filters/shadow_filter_example.yaml" />
