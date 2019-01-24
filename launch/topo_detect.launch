@@ -5,7 +5,7 @@
 		<param name="odom_frame" value="odom" />
 		<param name="base_link_frame" value="base_link" />
 		<param name="reach_thresh" value="0.5"/>
-		<param name="same_thresh" value="1"/>
+		<param name="same_thresh" value="1.5"/>
 		<param name="confidence_count" value="5"/>
 		<param name="confidence_probability" value="0.75"/>
 	</node>

@@ -92,6 +92,7 @@ namespace inter_det
     void printRelation();
     int checkParlell(struct topo, struct topo);
     bool checkEncaps(float beg_x, float beg_y, float end_x, float end_y, float x, float y);
+    bool checkProperT(struct topo l1, struct topo l2, bool side);
     void clearTopoVector() { topo_vec_.clear(); }
     float dist(float x1, float y1, float x2, float y2)
     {

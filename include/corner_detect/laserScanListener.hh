@@ -33,6 +33,10 @@ class LaserScanListener{
   int CONF_COUNT;
 
   float r_thresh_, s_thresh_;
+  bool inter_reach_;
+  bool left_scan_check_, right_scan_check_;
+  corner_detect::MidPoint to_pub_msg_;
+  bool reached_;
   
   // Still to be used!!
   tf::TransformListener tf_;
@@ -91,6 +95,9 @@ class LaserScanListener{
   ros::Time last_proc_time_;
   enum DIST{NEW,SAME,REACHED};
   
+    bool prev_int_set_;
+    corner_detect::MidPoint prev_int_;
+    std::vector<corner_detect::MidPoint> pub_buf_;
 
   public: LaserScanListener();
   public: ~LaserScanListener();
@@ -105,7 +112,7 @@ class LaserScanListener{
   protected: void publishIntersection(inter_det::TopoFeature::intersection);
   protected: float computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b);
   protected: bool computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b, bool reach);
-  
+protected: void confirmSpace(const sensor_msgs::LaserScan& scan, std::vector<corner_detect::MidPoint>::iterator msg);
   public: void processScan();
   protected: bool checkLastProcessTime()
   		{
@@ -135,6 +142,42 @@ class LaserScanListener{
 			}
 			return intersection_name;
 		}
+
+    int convertStringToEnum(std::string name)
+    {
+      int inter_enum;
+      if(name.compare("T_INTERSECTION"))
+      {
+        ROS_DEBUG("HARSHA: T heR");
+        inter_enum = TI;
+      }
+      else if(name.compare("RIGHT_INTERSECTION"))
+      {
+        ROS_DEBUG("HARSHA:RI heR");
+        inter_enum = RI;
+      }
+      else if(name.compare("RIGHT_TURN"))
+      {
+        ROS_DEBUG("HARSHA: RT heR");
+        inter_enum = RT;
+      }
+      else if(name.compare("LEFT_INTERSECTION"))
+      {
+        ROS_DEBUG("HARSHA: LI heR");
+        inter_enum = LI;
+      }
+      else if(name.compare("LEFT_TURN"))
+      {
+        ROS_DEBUG("HARSHA: LT heR");
+        inter_enum = LT;
+      }
+      else if(name.compare("FOUR_WAY_INTERSECTION"))
+      {
+        ROS_DEBUG("HARSHA: FWI heR");
+        inter_enum = FWI;
+      }
+      return inter_enum;
+    }
 };
 
 

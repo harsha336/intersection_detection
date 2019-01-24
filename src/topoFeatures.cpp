@@ -150,6 +150,46 @@ int inter_det::TopoFeature::checkLineIntersection(struct topo l1, struct topo l2
 		return LEFT;
 }
 
+bool inter_det::TopoFeature::checkProperT(struct topo l1, struct topo l2, bool side)
+{
+	float a1 = l1.end_y - l1.beg_y;
+	float b1 = l1.beg_x - l1.end_x;
+	float c1 = a1*l1.beg_x + b1*l1.beg_y;
+
+	float a2 = l2.end_y - l2.beg_y;
+	float b2 = l2.beg_x - l2.end_x;
+	float c2 = a2*l2.beg_x + b2*l2.beg_y;
+
+	float det = a1*b2 - a2*b1;
+	float x, y;
+
+	if (det == 0)
+	{
+		ROS_DEBUG("TopoFeature::checkLineIntersection: Should not come here as not parlell");
+	}
+	else
+	{
+		x = (b2*c1 - b1*c2)/det;
+		y = (a1*c2 - a2*c1)/det;
+	}
+	// RIGHT
+	if(side)
+	{
+		if(std::abs(x-l2.end_x) < LIN_SIGMA && std::abs(y-l2.end_y) < LIN_SIGMA)
+			return true;
+		else 
+			return false;
+	}
+	// LEFT
+	else
+	{
+		if(std::abs(x-l1.beg_x) < LIN_SIGMA && std::abs(y-l1.beg_y) < LIN_SIGMA)
+			return true;
+		else 
+			return false;
+	}
+}
+
 int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 {
 	ROS_DEBUG_STREAM("TopoFeature::checkParlell: Method entered!");
@@ -220,8 +260,8 @@ int inter_det::TopoFeature::checkParlell(struct topo l1, struct topo l2)
 
 bool inter_det::TopoFeature::checkEncaps(float beg_x, float beg_y, float end_x, float end_y, float x, float y)
 {
-	if( (std::min(beg_x, end_x) <= x && x <= std::max(beg_x, end_x)) &&
-             (std::min(beg_y, end_y) <= y && y <= std::max(beg_y, end_y)) )
+	if( (std::min(beg_x - LIN_SIGMA, end_x + LIN_SIGMA) <= x && x <= std::max(beg_x - LIN_SIGMA, end_x + LIN_SIGMA)) &&
+             (std::min(beg_y - LIN_SIGMA, end_y + LIN_SIGMA) <= y && y <= std::max(beg_y - LIN_SIGMA, end_y + LIN_SIGMA)) )
         {
         	  ROS_DEBUG_STREAM( "TopoFeature::checkEncaps: Point <" << x << "," << y <<
 			      			"> Inside Line [(" << beg_x << "," << beg_y 
@@ -642,8 +682,26 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
     }
     else if(left_space && right_space)
     {
+    	struct node *right, *left;
+		struct node *n = node_head_->fr->next;
+		int count = 1;
+		right = node_head_;
+		left = node_head_->br->next;
+		if(checkProperT(right->info, right->fr->next->info, true))
+		{
+			ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: INTERSECTION:MF RIGHT-I");
+			pose_.type =  RI;
+		}
+		else if(checkProperT(left->info, left->br->next->info, false))
+		{
+			ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: INTERSECTION:MF Left-I");
+			pose_.type = LI;
+		}
+		else
+		{
         	ROS_DEBUG_STREAM( "TopoFeature::identifyIntersection: INTERSECTION: T");
             pose_.type =  TI;
+        }
     }
 	else if(left_space)
     {
@@ -683,7 +741,7 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 		float mp_x, mp_y;
 		if(node_head_->br != NULL)
 		{
-			if(pose_.type == TI || pose_.type == FWI)
+			if(pose_.type == TI)
 			{
 				float vec[2];
 				float magr, magl;
@@ -710,6 +768,67 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 
 				mp_x = (mp_x + temp_x)/2;
 				mp_y = (mp_y + temp_y)/2;
+				
+				if(node_head_->br->next->br->next == node_head_->fr->next)
+				{
+					float a[2], b[2], proj;
+					a[0] = node_head_->fr->next->info.end_x - node_head_->fr->next->info.beg_x;
+					a[1] = node_head_->fr->next->info.end_y - node_head_->fr->next->info.beg_y;
+					b[0] = mp_x - node_head_->fr->next->info.beg_x;
+					b[1] = mp_y - node_head_->fr->next->info.beg_y;
+
+					proj = a[0]*b[0] + a[1]*b[1];
+
+					float mag = sqrt(pow(a[0],2.0f) + pow(a[1],2.0f));
+					float temp[2];
+					a[0] = a[0]/mag;
+					a[1] = a[1]/mag;
+					ROS_INFO("MF: Proj: %f, Midpoint:(%f,%f), Vec: (%f,%f)",proj,mp_x,mp_y,a[0],a[1]);
+
+					temp[0] = node_head_->fr->next->info.beg_x + proj*temp[0];
+					temp[1] = node_head_->fr->next->info.beg_y + proj*temp[1];
+
+					ROS_INFO_STREAM("MF Center line : (" <<
+							node_head_->fr->next->info.beg_x << "," <<
+							node_head_->fr->next->info.beg_y << ")(" <<
+							node_head_->fr->next->info.end_x << "," <<
+							node_head_->fr->next->info.end_y << ") Point: (" <<
+							temp[0] << "," << temp[1] << ")");
+
+					mp_x = (mp_x + temp[0])/2;
+					mp_y = (mp_y + temp[1])/2;
+				}
+				pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
+						tf::Vector3(mp_x,mp_y,0.0f));
+
+			}
+			else if(pose_.type == FWI /*|| pose_.type == TI*/)
+			{
+				float vec[2];
+				float magr, magl;
+
+				vec[0] = (node_head_->br->next->info.beg_x -
+					  node_head_->br->next->info.end_x);
+				vec[1] = (node_head_->br->next->info.beg_y -
+					  node_head_->br->next->info.end_y);
+				magl = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
+				vec[0] = vec[0] / magl;
+				vec[1] = vec[1] / magl;
+				mp_x = node_head_->br->next->info.beg_x + 1.75*vec[0];
+				mp_y = node_head_->br->next->info.beg_y + 1.75*vec[1];
+
+				vec[0] = (node_head_->info.end_x -
+					  node_head_->info.beg_x);
+				vec[1] = (node_head_->info.end_y -
+					  node_head_->info.beg_y);
+				magr = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
+				vec[0] = vec[0] / magr;
+				vec[1] = vec[1] / magr;
+				float temp_x = node_head_->info.end_x + 1.75*vec[0];
+				float temp_y = node_head_->info.end_y + 1.75*vec[1];
+
+				mp_x = (mp_x + temp_x)/2;
+				mp_y = (mp_y + temp_y)/2;
 				pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
 						tf::Vector3(mp_x,mp_y,0.0f));
 			}
@@ -726,10 +845,10 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 				vec[0] = vec[0] / magl;
 				vec[1] = vec[1] / magl;
 
-				magl = magl + 0.2;
+				magl = magl + 0.5;
 
-				mp_x = node_head_->br->next->info.beg_x + 0.2*vec[0];
-				mp_y = node_head_->br->next->info.beg_y + 0.2*vec[1];
+				mp_x = node_head_->br->next->info.beg_x + 0.5*vec[0];
+				mp_y = node_head_->br->next->info.beg_y + 0.5*vec[1];
 				
 				vec[0] = (node_head_->info.end_x - 
 					  node_head_->info.beg_x);
@@ -760,31 +879,38 @@ inter_det::TopoFeature::intersection inter_det::TopoFeature::logIntersection(boo
 				vec[1] = (node_head_->info.end_y - 
 					  node_head_->info.beg_y);
 
+				ROS_DEBUG("Right line: (%f,%f)-(%f,%f)",node_head_->info.beg_x,node_head_->info.beg_y,node_head_->info.end_x,node_head_->info.end_y);
+
 				magr = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
 
 				vec[0] = vec[0] / magr;
 				vec[1] = vec[1] / magr;
 
-				magr = magr + 0.2;
+				magr = magr + 0.5;
 
-				mp_x = node_head_->info.end_x + 0.2*vec[0];
-				mp_y = node_head_->info.end_y + 0.2*vec[1];
+				mp_x = node_head_->info.end_x + 0.5*vec[0];
+				mp_y = node_head_->info.end_y + 0.5*vec[1];
+				ROS_DEBUG("RIGHT F: Middle right: (%f,%f)",mp_x,mp_y);
 
 				vec[0] = (node_head_->br->next->info.beg_x - 
 					  node_head_->br->next->info.end_x);
 				vec[1] = (node_head_->br->next->info.beg_y -
 					  node_head_->br->next->info.end_y);
+				ROS_DEBUG("Left line: (%f,%f)-(%f,%f)",node_head_->br->next->info.beg_x,node_head_->br->next->info.beg_y,node_head_->br->next->info.end_x,node_head_->br->next->info.end_y);
 				magl = sqrt(pow(vec[0],2.0f) + pow(vec[1],2.0f));
 				vec[0] = vec[0]/magl;
 				vec[1] = vec[1]/magl;
-				float temp_x = node_head_->br->next->info.end_x - magr*vec[0];
-				float temp_y = node_head_->br->next->info.end_y - magr*vec[1];
+				float temp_x = node_head_->br->next->info.end_x + magr*vec[0];
+				float temp_y = node_head_->br->next->info.end_y + magr*vec[1];
+				ROS_DEBUG("RIGHT F: Middle left: (%f,%f)",temp_x,temp_y); 
 
 				//mp_x = node_head_->info.end_x;
 				//mp_y = node_head_->info.end_y;
 
 				mp_x = (mp_x + temp_x)/2;
 				mp_y = (mp_y + temp_y)/2;
+
+				ROS_DEBUG("Right F: CenterMid: (%f,%f)",mp_x,mp_y);
 
 				pose_.p = tf::Transform(tf::Quaternion(0.0f,0.0f,0.0f,0.0f),
 						tf::Vector3(mp_x,mp_y,0.0f));
