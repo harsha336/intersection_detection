@@ -321,13 +321,24 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
     	try
 	{
 		cur_tf_ = buffer_.lookupTransform(odom_, base_link_, ros::Time(0));
+		 tf::Transform temp;
+        	temp = tf::Transform(tf::Quaternion(cur_tf_.transform.rotation.x,
+                                            cur_tf_.transform.rotation.y,
+                                            cur_tf_.transform.rotation.z,
+                                            cur_tf_.transform.rotation.w),
+                             	     tf::Vector3(cur_tf_.transform.translation.x,
+                                         cur_tf_.transform.translation.y,
+                                         cur_tf_.transform.translation.z));
+        	geometry_msgs::Pose tp;
+        	tf::poseTFToMsg(temp, tp);
 		if(inf_found_ && !pub_msg_)
 		{
-			if(computeDistance(cur_tf_, prev_tf_) > 0.2)
+			if(computeDistance(cur_tf_, prev_tf_) > 0.2 && computeDistance(tp,legal_msg_.pose) <0.5)
 			{
 				if(legal_int_ && !pub_msg_)
 				{
-					printMessage(legal_msg_.intersection_enum, cur_tf_);
+					
+					printMessage(legal_msg_.intersection_enum, tp);
 				}
 				//ROS_INFO("Ideal time to print");
 			}
@@ -519,22 +530,12 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
     return;
 }
 
-void LaserScanListener::printMessage(int int_type, geometry_msgs::TransformStamped p)
+void LaserScanListener::printMessage(int int_type, geometry_msgs::Pose p)
 {
 
 	ROS_INFO("Printing here!!!!!!!MESSAGE PRINTED: ");
 	corner_detect::MidPoint msg;
-	tf::Transform temp;
-	temp = tf::Transform(tf::Quaternion(p.transform.rotation.x,
-					    p.transform.rotation.y,
-					    p.transform.rotation.z,
-					    p.transform.rotation.w),
-			     tf::Vector3(p.transform.translation.x,
-			     		 p.transform.translation.y,
-					 p.transform.translation.z));
-	geometry_msgs::Pose tp;
-	tf::poseTFToMsg(temp, tp);
-	msg.pose = tp;
+	msg.pose = p;
 	msg.header.stamp = ros::Time::now();
 	msg.child_frame_id = odom_;
 	msg.intersection_name = convertEnumToString(int_type);

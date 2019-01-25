@@ -116,7 +116,7 @@ class LaserScanListener{
   protected: void publishIntersection(inter_det::TopoFeature::intersection);
   protected: float computeDistance(geometry_msgs::Pose a, geometry_msgs::Pose b);
   protected: float computeDistance(geometry_msgs::TransformStamped a, geometry_msgs::TransformStamped b);
-  protected: void printMessage(int int_type, geometry_msgs::TransformStamped p);
+  protected: void printMessage(int int_type, geometry_msgs::Pose p);
   protected: bool computeManDistance(geometry_msgs::Pose a, geometry_msgs::Pose b, bool reach);
 protected: void confirmSpace(const sensor_msgs::LaserScan& scan, std::vector<corner_detect::MidPoint>::iterator msg);
   public: void processScan();
