@@ -246,8 +246,8 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
     float angle;
 
     int check_ang_inc = 0.92/delta_phi;
-    int left_space_count, left_no_space_count, right_space_count, right_no_space_count, center_no_space_count, center_space_count;
-    left_space_count = left_no_space_count = right_space_count = right_no_space_count = center_space_count = center_no_space_count = 0;
+    int left_space_count, left_no_space_count, right_space_count, right_no_space_count;
+    left_space_count = left_no_space_count = right_space_count = right_no_space_count = 0;
 
     bool left_space, right_space, center_space;
     left_space = right_space = center_space = true;
@@ -293,10 +293,10 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
     }
 
     // check center
-    int si = (scan.ranges.size()/2) - (check_ang_inc/2);
-    for(int i = 0; i < check_ang_inc;i++)
+    //int si = (scan.ranges.size()/2) - (check_ang_inc/2);
+    /*for(int i = 0; i < check_ang_inc;i++)
     {
-        if(scan.ranges[si] > 0.75)
+        if(scan.ranges[si] > 1)
         {
             center_space_count++;
             center_no_space_count = 0;
@@ -311,10 +311,10 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
             }
         }
         si++;
-    }
+    }*/
 
 
-    //ROS_INFO("Space info: left: [%d], Right: [%d], center: [%d]",left_space, right_space, center_space);
+    ROS_INFO("Space info: left: [%d], Right: [%d]",left_space, right_space);
     corner_detect::MidPoint dum_msg;
     if(left_space || right_space)
     {
@@ -333,9 +333,9 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
         	tf::poseTFToMsg(temp, tp);
 		if(inf_found_ && !pub_msg_)
 		{
-			if(computeDistance(cur_tf_, prev_tf_) > 0.2 && computeDistance(tp,legal_msg_.pose) <0.5)
+			if(computeDistance(cur_tf_, prev_tf_) > 0.5 && computeDistance(tp,legal_msg_.pose) <1.0)
 			{
-				if(legal_int_ && !pub_msg_)
+				if(legal_int_ && !pub_msg_ && inter_reach_)
 				{
 					
 					printMessage(legal_msg_.intersection_enum, tp);
@@ -348,6 +348,7 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
 			inf_found_ = true;
 			ROS_INFO("Setting space here!######### Window starts left:[%d], Right:[%d]",left_space, right_space);
 			prev_tf_ = cur_tf_;
+			ROS_INFO("WINDOW START: (%f,%f)",cur_tf_.transform.translation.x, cur_tf_.transform.translation.y);
 		}
 	}
 	catch(tf::TransformException &ex)
@@ -359,31 +360,68 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
     {
     	inf_found_ = false;
     	ROS_INFO("Window end. Should have detected");
+		ROS_INFO("WINDOW END: (%f,%f)", cur_tf_.transform.translation.x, cur_tf_.transform.translation.y);
 	pub_msg_ = false;
     }
-    else if(!left_space && !right_space && !center_space && !pub_msg_)
+    else if(!pub_msg_ && !inf_found_)
     {
-    	inf_found_ = false;
+	ROS_INFO("COMING HERE|HARSHA");
+	int center_space_count, center_no_space_count;
+	center_space_count = center_no_space_count = 0;
+	bool center_space = false;
+	for(int i=0;i<scan.ranges.size();i++)
+	{
+		if(scan.ranges[i] > 2)
+		{
+			center_space_count++;
+			if(center_space_count > check_ang_inc/4)
+			{
+				center_space = true;
+				center_no_space_count = 0;
+				break;
+			}
+		}
+		else
+		{
+			center_no_space_count++;
+			center_space_count = 0;
+		}
+	}
+	if(!center_space)
+	{
 	try
 	{
 		cur_tf_ = buffer_.lookupTransform(odom_, base_link_, ros::Time(0));
-		//printMessage(UNKW, cur_tf_);
+		
+tf::Transform temp;
+        	temp = tf::Transform(tf::Quaternion(cur_tf_.transform.rotation.x,
+                                            cur_tf_.transform.rotation.y,
+                                            cur_tf_.transform.rotation.z,
+                                            cur_tf_.transform.rotation.w),
+                             	     tf::Vector3(cur_tf_.transform.translation.x,
+                                         cur_tf_.transform.translation.y,
+                                         cur_tf_.transform.translation.z));
+        	geometry_msgs::Pose tp;
+        	tf::poseTFToMsg(temp, tp);
+		printMessage(UNKW, tp);
 	}
     	catch(tf::TransformException &ex)
     	{
         	ROS_ERROR("LaserScanListener::detectLineSegments: Clearing topo features : %s",ex.what());
     	}
+	}
 	
     }
 
-    left_space_count = left_no_space_count = right_space_count = right_no_space_count = center_space_count = center_no_space_count = 0;
+
+    left_space_count = left_no_space_count = right_space_count = right_no_space_count = 0;
     if(inter_reach_)
     {
         ROS_DEBUG_STREAM("SCAN INFO:"<<scan.ranges.size());
         // check right
         for(int i = 0,si = 0;i<check_ang_inc;i++)
         {
-                if(scan.ranges[si] > 1)
+                if(scan.ranges[si] > 2)
                 {
                         right_space_count++;
                         right_no_space_count = 0;
@@ -407,7 +445,7 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
         // check left
         for(int i = 0,si = scan.ranges.size()-1;i<check_ang_inc;i++)
         {
-                if(scan.ranges[si] > 1)
+                if(scan.ranges[si] > 2)
                 {
                         left_space_count++;
                         left_no_space_count = 0;
@@ -428,7 +466,7 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
                 si--;
         }
 
-        ROS_DEBUG_STREAM("HARSHA: Left space count: "<<left_space_count<<" Right space count: " << right_space_count);
+        //ROS_INFO_STREAM("HARSHA: Left space count: "<<left_space_count<<" Right space count: " << right_space_count << "check_ang_inc: " << check_ang_inc);
                 int inter_name = to_pub_msg_.intersection_enum;
         ROS_DEBUG_STREAM("Printing info HARSHA:" << to_pub_msg_.intersection_name << ":" << inter_name);
         if(inter_name == TI || inter_name == FWI)
@@ -441,18 +479,22 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
                 else if(left_space_count >= (check_ang_inc/4))
                 {
                         to_pub_msg_.intersection_name = "LEFT_INTERSECTION";
+						to_pub_msg_.intersection_enum = LI;
 			legal_int_ = true;
 			legal_msg_ = to_pub_msg_;
+			legal_msg_.intersection_enum = LI;
                 }
                 else if(right_space_count >= (check_ang_inc/4))
                 {
                         to_pub_msg_.intersection_name = "RIGHT_INTERSECTION";
+						to_pub_msg_.intersection_enum = RI;
 			legal_int_ = true;
 			legal_msg_ = to_pub_msg_;
+			legal_msg_.intersection_enum = RI;
                 }
                 else
                 {
-                        ROS_DEBUG("WRONG INTERSECTION DETECTED TI");
+                        ROS_INFO("WRONG INTERSECTION DETECTED TI");
                 }
 
         }
@@ -461,9 +503,19 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
                 if(left_space_count >= (check_ang_inc/4))
                 {
                         if(right_space_count >= (check_ang_inc/4))
+						{
                                 to_pub_msg_.intersection_name = "FOUR_WAY_INTERSECTION";
+								to_pub_msg_.intersection_enum = FWI;
+								legal_msg_ = to_pub_msg_;
+								legal_msg_.intersection_enum = FWI;
+								legal_int_ = true;
+						}
+						else
+						{
 			legal_int_ = true;
 			legal_msg_ = to_pub_msg_;
+						}
+			
                 }
                 else
                         ROS_DEBUG("WRONG INTERSECTION DETECTED LI/LT");
@@ -473,9 +525,18 @@ void LaserScanListener::detectBreakPoint(const sensor_msgs::LaserScan& scan)
                 if(right_space_count >= (check_ang_inc/4))
                 {
                         if(left_space_count >= (check_ang_inc/4))
+						{
                                 to_pub_msg_.intersection_name = "FOUR_WAY_INTERSECTION";
+								to_pub_msg_.intersection_enum = FWI;
+								legal_msg_ = to_pub_msg_;
+								legal_msg_.intersection_enum = FWI;
+								legal_int_ = true;
+						}
+						else
+						{
 			legal_int_ = true;
 			legal_msg_ = to_pub_msg_;
+						}
                 }
                else
                         ROS_DEBUG("WRONG INTERSECTION DETECTED RI/RT");
@@ -538,12 +599,15 @@ void LaserScanListener::printMessage(int int_type, geometry_msgs::Pose p)
 	msg.pose = p;
 	msg.header.stamp = ros::Time::now();
 	msg.child_frame_id = odom_;
+	msg.reached = "REACHED";
 	msg.intersection_name = convertEnumToString(int_type);
 	msg.intersection_enum = int_type;
 	ROS_INFO("%s",msg.intersection_name.c_str());
+	ROS_INFO("(%f,%f)",p.position.x,p.position.y);
 	int_pub_.publish(msg);
 	pub_msg_ = true;
 	legal_int_ = false;
+	inter_reach_ = false;
 }
 
 void LaserScanListener::processScan()
@@ -927,7 +991,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 			bool del_mp = false;
 			if(cd)
 			{
-				pub_msg_ = false;
+				//pub_msg_ = false;
 				msg.reached = "REACHED";
 				int sum =0;
 				float prob = 0;
@@ -954,13 +1018,13 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 				msg.intersection_name = convertEnumToString(type);
 				msg.intersection_enum = type;
 				msg.pose = cur.first;
-				if(sum < CONF_COUNT /*|| prob < CONF_PROB*/)
+				/*if(sum < CONF_COUNT || prob < CONF_PROB)
 				{
 					to_pub = false;
 					del_mp = true;
 				}
 				else
-				{
+				{*/
 					ROS_INFO_STREAM("FINAL: =====REACHED PUBLISH=====\n" << 
 							"Point: (" << cur.first.position.x << "," <<
 							cur.first.position.y << ")\n" <<
@@ -968,7 +1032,7 @@ void LaserScanListener::publishIntersection(inter_det::TopoFeature::intersection
 							op.position.y << ")");
 					del_mp = true;
 					to_pub = true;
-				}
+				//}
 				is_.erase(it);
 				break;
 			}
